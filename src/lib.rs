@@ -134,6 +134,11 @@ pub use error::Error;
 mod item;
 pub use item::Item;
 
+#[cfg(feature = "keystore")]
+pub mod keystore;
+#[cfg(feature = "keystore")]
+pub use keystore::default_credential_builder;
+
 pub use session::EncryptionType;
 
 use crate::proxy::service::ServiceProxy;
