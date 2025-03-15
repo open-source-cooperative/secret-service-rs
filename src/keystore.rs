@@ -845,6 +845,7 @@ mod tests {
     #[test]
     #[ignore = "can't be run headless, because it needs to prompt"]
     fn test_separate_targets_dont_interfere() {
+        keyring::set_default_credential_builder(default_credential_builder());
         let name1 = generate_random_string();
         let name2 = generate_random_string();
         let credential1 = SsCredential::new_with_target(Some(&name1), &name1, &name1)
@@ -896,6 +897,7 @@ mod tests {
 
     #[test]
     fn test_legacy_entry() {
+        keyring::set_default_credential_builder(default_credential_builder());
         let name = generate_random_string();
         let pw = "test password";
         let v3_entry = Entry::new(&name, &name).expect("Can't create v3 entry");
