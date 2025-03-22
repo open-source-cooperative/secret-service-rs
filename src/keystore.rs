@@ -233,7 +233,7 @@ impl SsCredential {
         Ok(Self {
             attributes,
             label: format!(
-                "{user}@{service}:{target} (keyring v{})",
+                "{user}@{service}:{target} (keyring-rs/secret-service-rs v{})",
                 env!("CARGO_PKG_VERSION"),
             ),
             target: Some(target.to_string()),
@@ -253,7 +253,7 @@ impl SsCredential {
         Ok(Self {
             attributes,
             label: format!(
-                "keyring-rs v{} for no target, service '{service}', user '{user}'",
+                "{user}@{service} (keyring-rs/secret-service-rs v{})",
                 env!("CARGO_PKG_VERSION"),
             ),
             target: None,
