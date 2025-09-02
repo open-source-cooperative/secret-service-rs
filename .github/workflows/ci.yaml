@@ -96,7 +96,9 @@ jobs:
           key: $test-cache-${{ steps.toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install gnome-keyring
-        run: sudo apt-get install -y gnome-keyring
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnome-keyring
 
       - name: Start gnome-keyring
         # run gnome-keyring with 'foobar' as password for the login keyring
