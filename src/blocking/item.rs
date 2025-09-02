@@ -214,6 +214,27 @@ mod test {
     }
 
     #[test]
+    fn should_get_item_by_path() {
+        let path: OwnedObjectPath;
+        // first create the item on one blocking call, set its label, and get its path
+        {
+            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let collection = ss.get_default_collection().unwrap();
+            let item = create_test_default_item(&collection);
+            item.set_label("Tester").unwrap();
+            path = item.item_path.clone();
+        }
+        // now get the item by path on another blocking call, check its label, and delete it
+        {
+            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let item = ss.get_item_by_path(path).unwrap();
+            let label = item.get_label().unwrap();
+            assert_eq!(label, "Tester");
+            item.delete().unwrap();
+        }
+    }
+
+    #[test]
     fn should_create_with_item_attributes() {
         let ss = SecretService::connect(EncryptionType::Plain).unwrap();
         let collection = ss.get_default_collection().unwrap();

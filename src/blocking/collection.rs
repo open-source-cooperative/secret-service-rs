@@ -88,7 +88,7 @@ impl<'a> Collection<'a> {
         Ok(())
     }
 
-    pub fn get_all_items(&self) -> Result<Vec<Item>, Error> {
+    pub fn get_all_items(&'a self) -> Result<Vec<Item<'a>>, Error> {
         let items = self.collection_proxy.items()?;
 
         // map array of item paths to Item
@@ -107,7 +107,7 @@ impl<'a> Collection<'a> {
         Ok(res)
     }
 
-    pub fn search_items(&self, attributes: HashMap<&str, &str>) -> Result<Vec<Item>, Error> {
+    pub fn search_items(&'a self, attributes: HashMap<&str, &str>) -> Result<Vec<Item<'a>>, Error> {
         let items = self.collection_proxy.search_items(attributes)?;
 
         // map array of item paths to Item
@@ -135,13 +135,13 @@ impl<'a> Collection<'a> {
     }
 
     pub fn create_item(
-        &self,
+        &'a self,
         label: &str,
         attributes: HashMap<&str, &str>,
         secret: &[u8],
         replace: bool,
         content_type: &str,
-    ) -> Result<Item, Error> {
+    ) -> Result<Item<'a>, Error> {
         let secret_struct = format_secret(self.session, secret, content_type)?;
 
         let mut properties: HashMap<&str, Value> = HashMap::new();
@@ -303,5 +303,25 @@ mod test {
         assert_eq!(label, "Login");
 
         collection.lock().unwrap();
+    }
+
+    #[test]
+    fn should_get_collection_by_path() {
+        let path: OwnedObjectPath;
+        let label: String;
+        // get the default collection on one blocking call, remember its path and label
+        {
+            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let collection = ss.get_default_collection().unwrap();
+            label = collection.get_label().unwrap();
+            path = collection.collection_path.clone();
+        }
+        // get collection by path on another blocking call, check that the label is the same
+        {
+            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let collection_prime = ss.get_collection_by_path(path).unwrap();
+            let label_prime = collection_prime.get_label().unwrap();
+            assert_eq!(label, label_prime);
+        }
     }
 }
