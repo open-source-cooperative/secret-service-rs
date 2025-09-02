@@ -312,4 +312,17 @@ mod test {
 
         collection.lock().await.unwrap();
     }
+
+    #[tokio::test]
+    async fn should_get_collection_by_path() {
+        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let collection = ss.get_default_collection().await.unwrap();
+        let label = collection.get_label().await.unwrap();
+
+        // get collection by path
+        let path = collection.collection_path.clone();
+        let collection_prime = ss.get_collection_by_path(path).await.unwrap();
+        let label_prime = collection_prime.get_label().await.unwrap();
+        assert_eq!(label, label_prime);
+    }
 }

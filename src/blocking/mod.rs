@@ -16,7 +16,7 @@ use crate::util;
 use crate::{proxy::service::ServiceProxyBlocking, util::exec_prompt_blocking};
 use crate::{EncryptionType, Error, SearchItemsResult};
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, Value};
+use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
 
 mod collection;
 pub use collection::Collection;
@@ -36,7 +36,7 @@ pub struct SecretService<'a> {
     service_proxy: ServiceProxyBlocking<'a>,
 }
 
-impl SecretService<'_> {
+impl<'a> SecretService<'a> {
     /// Create a new `SecretService` instance
     pub fn connect(encryption: EncryptionType) -> Result<Self, Error> {
         let conn = zbus::blocking::Connection::session().map_err(util::handle_conn_error)?;
@@ -52,7 +52,7 @@ impl SecretService<'_> {
     }
 
     /// Get all collections
-    pub fn get_all_collections(&self) -> Result<Vec<Collection>, Error> {
+    pub fn get_all_collections(&'a self) -> Result<Vec<Collection<'a>>, Error> {
         let collections = self.service_proxy.collections()?;
         collections
             .into_iter()
@@ -72,7 +72,7 @@ impl SecretService<'_> {
     /// Most common would be the `default` alias, but there
     /// is also a specific method for getting the collection
     /// by default alias.
-    pub fn get_collection_by_alias(&self, alias: &str) -> Result<Collection, Error> {
+    pub fn get_collection_by_alias(&'a self, alias: &str) -> Result<Collection<'a>, Error> {
         let object_path = self.service_proxy.read_alias(alias)?;
 
         if object_path.as_str() == "/" {
@@ -88,8 +88,8 @@ impl SecretService<'_> {
     }
 
     /// Get default collection.
-    /// (The collection whos alias is `default`)
-    pub fn get_default_collection(&self) -> Result<Collection, Error> {
+    /// (The collection whose alias is `default`)
+    pub fn get_default_collection(&'a self) -> Result<Collection<'a>, Error> {
         self.get_collection_by_alias("default")
     }
 
@@ -97,7 +97,7 @@ impl SecretService<'_> {
     /// First tries `default` collection, then `session`
     /// collection, then the first collection when it
     /// gets all collections.
-    pub fn get_any_collection(&self) -> Result<Collection, Error> {
+    pub fn get_any_collection(&'a self) -> Result<Collection<'a>, Error> {
         // default first, then session, then first
 
         self.get_default_collection()
@@ -113,7 +113,7 @@ impl SecretService<'_> {
     }
 
     /// Creates a new collection with a label and an alias.
-    pub fn create_collection(&self, label: &str, alias: &str) -> Result<Collection, Error> {
+    pub fn create_collection(&'a self, label: &str, alias: &str) -> Result<Collection<'a>, Error> {
         let mut properties: HashMap<&str, Value> = HashMap::new();
         properties.insert(SS_COLLECTION_LABEL, label.into());
 
@@ -129,7 +129,7 @@ impl SecretService<'_> {
                 let prompt_path = created_collection.prompt;
 
                 // Exec prompt and parse result
-                let prompt_res = util::exec_prompt_blocking(self.conn.clone(), &prompt_path)?;
+                let prompt_res = exec_prompt_blocking(self.conn.clone(), &prompt_path)?;
                 prompt_res.try_into()?
             } else {
                 // if not, just return created path
@@ -147,9 +147,9 @@ impl SecretService<'_> {
 
     /// Searches all items by attributes
     pub fn search_items(
-        &self,
+        &'a self,
         attributes: HashMap<&str, &str>,
-    ) -> Result<SearchItemsResult<Item>, Error> {
+    ) -> Result<SearchItemsResult<Item<'a>>, Error> {
         let items = self.service_proxy.search_items(attributes)?;
 
         let object_paths_to_items = |items: Vec<_>| {
@@ -173,7 +173,7 @@ impl SecretService<'_> {
     }
 
     /// Unlock all items in a batch
-    pub fn unlock_all(&self, items: &[&Item<'_>]) -> Result<(), Error> {
+    pub fn unlock_all(&'a self, items: &[&Item]) -> Result<(), Error> {
         let objects = items.iter().map(|i| &*i.item_path).collect();
         let lock_action_res = self.service_proxy.unlock(objects)?;
 
@@ -182,6 +182,27 @@ impl SecretService<'_> {
         }
 
         Ok(())
+    }
+
+    pub fn get_item_by_path(&'a self, item_path: OwnedObjectPath) -> Result<Item<'a>, Error> {
+        Item::new(
+            self.conn.clone(),
+            &self.session,
+            &self.service_proxy,
+            item_path,
+        )
+    }
+
+    pub fn get_collection_by_path(
+        &'a self,
+        collection_path: OwnedObjectPath,
+    ) -> Result<Collection<'a>, Error> {
+        Collection::new(
+            self.conn.clone(),
+            &self.session,
+            &self.service_proxy,
+            collection_path,
+        )
     }
 }
 
@@ -215,7 +236,7 @@ mod test {
     fn should_return_error_if_collection_doesnt_exist() {
         let ss = SecretService::connect(EncryptionType::Plain).unwrap();
 
-        match ss.get_collection_by_alias("definitely_defintely_does_not_exist") {
+        match ss.get_collection_by_alias("definitely_definitely_does_not_exist") {
             Err(Error::NoResult) => {}
             _ => panic!(),
         };
