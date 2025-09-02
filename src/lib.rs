@@ -142,7 +142,7 @@ use crate::ss::SS_COLLECTION_LABEL;
 use crate::util::exec_prompt;
 use futures_util::TryFutureExt;
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, Value};
+use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
 
 /// Secret Service Struct.
 ///
@@ -330,6 +330,29 @@ impl<'a> SecretService<'a> {
         }
 
         Ok(())
+    }
+
+    pub async fn get_item_by_path(&'a self, item_path: OwnedObjectPath) -> Result<Item<'a>, Error> {
+        Item::new(
+            self.conn.clone(),
+            &self.session,
+            &self.service_proxy,
+            item_path,
+        )
+        .await
+    }
+
+    pub async fn get_collection_by_path(
+        &'a self,
+        collection_path: OwnedObjectPath,
+    ) -> Result<Collection<'a>, Error> {
+        Collection::new(
+            self.conn.clone(),
+            &self.session,
+            &self.service_proxy,
+            collection_path,
+        )
+        .await
     }
 }
 

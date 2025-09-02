@@ -225,6 +225,26 @@ mod test {
     }
 
     #[tokio::test]
+    async fn should_get_item_by_path() {
+        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let collection = ss.get_default_collection().await.unwrap();
+        let item = create_test_default_item(&collection).await;
+
+        // Set label to test and check
+        item.set_label("Tester").await.unwrap();
+        let label = item.get_label().await.unwrap();
+        assert_eq!(label, "Tester");
+
+        // get item by path and check label
+        let path = item.item_path.clone();
+        let item_prime = ss.get_item_by_path(path).await.unwrap();
+        let label_prime = item_prime.get_label().await.unwrap();
+        assert_eq!(label_prime, label);
+
+        item.delete().await.unwrap();
+    }
+
+    #[tokio::test]
     async fn should_create_with_item_attributes() {
         let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
