@@ -76,9 +76,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 ### Functionality
 
-- SecretService: initialize dbus, create plain/encrypted session.
-- Collections: create, delete, search.
-- Items: create, delete, search, get/set secret.
+- SecretService: initialize dbus or use existing connection, create plain/encrypted session.
+- Collections: create, delete, search, get-by-path.
+- Items: create, delete, search, get-by-path, get/set secret.
 
 ### Changelog
 See [the list of GitHub releases and their release notes](https://github.com/hwchen/secret-service-rs/releases)
