@@ -166,20 +166,32 @@ pub struct SearchItemsResult<T> {
 }
 
 impl<'a> SecretService<'a> {
-    /// Create a new `SecretService` instance.
+    /// Create a new [SecretService] instance.
+    ///
+    /// This will initialize its own connection to the session bus.
     pub async fn connect(encryption: EncryptionType) -> Result<SecretService<'a>, Error> {
         let conn = zbus::Connection::session()
             .await
             .map_err(util::handle_conn_error)?;
 
-        let service_proxy = ServiceProxy::new(&conn)
+        Self::connect_with_existing(encryption, conn).await
+    }
+
+    /// Creates a new [SecretService] instance, utilizing an existing connection handle.
+    ///
+    /// `session_conn` should be connected to the session/user message bus.
+    pub async fn connect_with_existing(
+        encryption: EncryptionType,
+        session_conn: zbus::Connection,
+    ) -> Result<SecretService<'a>, Error> {
+        let service_proxy = ServiceProxy::new(&session_conn)
             .await
             .map_err(util::handle_conn_error)?;
 
         let session = Session::new(&service_proxy, encryption).await?;
 
         Ok(SecretService {
-            conn,
+            conn: session_conn,
             session,
             service_proxy,
         })
