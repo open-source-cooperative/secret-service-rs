@@ -37,15 +37,28 @@ pub struct SecretService<'a> {
 }
 
 impl<'a> SecretService<'a> {
-    /// Create a new `SecretService` instance
-    pub fn connect(encryption: EncryptionType) -> Result<Self, Error> {
+    /// Create a new [SecretService] instance.
+    ///
+    /// This will initialize its own connection to the session bus.
+    pub fn connect(encryption: EncryptionType) -> Result<SecretService<'a>, Error> {
         let conn = zbus::blocking::Connection::session().map_err(util::handle_conn_error)?;
-        let service_proxy = ServiceProxyBlocking::new(&conn).map_err(util::handle_conn_error)?;
+        Self::connect_with_existing(encryption, conn)
+    }
+
+    /// Creates a new [SecretService] instance, utilizing an existing connection handle.
+    ///
+    /// `session_conn` should be connected to the session/user message bus.
+    pub fn connect_with_existing(
+        encryption: EncryptionType,
+        session_conn: zbus::blocking::Connection,
+    ) -> Result<SecretService<'a>, Error> {
+        let service_proxy =
+            ServiceProxyBlocking::new(&session_conn).map_err(util::handle_conn_error)?;
 
         let session = Session::new_blocking(&service_proxy, encryption)?;
 
         Ok(SecretService {
-            conn,
+            conn: session_conn,
             session,
             service_proxy,
         })
