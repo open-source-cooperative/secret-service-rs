@@ -29,7 +29,6 @@ rt-tokio-crypto-openssl = ["rt-tokio", "crypto-openssl"]
 aes = { version = "0.9", optional = true }
 cbc = { version = "0.2", features = ["block-padding", "alloc"] , optional = true }
 hkdf = { version = "0.13", optional = true }
-once_cell = "1"
 futures-util = "0.3"
 num = "0.4"
 getrandom = "0.4"

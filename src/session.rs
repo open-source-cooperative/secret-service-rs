@@ -21,14 +21,14 @@ use num::{
     integer::Integer,
     traits::{One, Zero},
 };
-use once_cell::sync::Lazy;
 use zbus::zvariant::OwnedObjectPath;
 
 use std::ops::{Mul, Rem, Shr};
+use std::sync::LazyLock;
 
 // for key exchange
-static DH_GENERATOR: Lazy<BigUint> = Lazy::new(|| BigUint::from_u64(0x2).unwrap());
-static DH_PRIME: Lazy<BigUint> = Lazy::new(|| {
+static DH_GENERATOR: LazyLock<BigUint> = LazyLock::new(|| BigUint::from_u64(0x2).unwrap());
+static DH_PRIME: LazyLock<BigUint> = LazyLock::new(|| {
     BigUint::from_bytes_be(&[
         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 0x0F, 0xDA, 0xA2, 0x21, 0x68, 0xC2,
         0x34, 0xC4, 0xC6, 0x62, 0x8B, 0x80, 0xDC, 0x1C, 0xD1, 0x29, 0x02, 0x4E, 0x08, 0x8A, 0x67,
