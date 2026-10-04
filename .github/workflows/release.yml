@@ -16,6 +16,7 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    environment: release
     needs: ci
     permissions:
       contents: read
