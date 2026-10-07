@@ -7,6 +7,11 @@ on:
   push:
     branches:
     - master
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
