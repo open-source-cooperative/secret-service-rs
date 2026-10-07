@@ -13,6 +13,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 env:
   CARGO_NET_RETRY: 3
 
@@ -40,14 +44,6 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
         components: clippy
-
-    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: clippy-${{ runner.os }}-${{ matrix.rust }}-${{ matrix.feature }}-${{ hashFiles('**/Cargo.lock') }}
 
     - name: "Clippy ${{ matrix.rust }}"
       run: cargo clippy --features=${{ matrix.feature }} --all-targets --all -- -D clippy::dbg_macro -D warnings -F unused_must_use
@@ -92,14 +88,6 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: test-${{ runner.os }}-${{ matrix.rust }}-${{ matrix.feature }}-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Install gnome-keyring
         run: |
           sudo apt-get update
@@ -140,14 +128,6 @@ jobs:
         with:
           toolchain: "1.87.0"
           components: clippy
-
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: clippy-${{ runner.os }}-1.87.0-${{ matrix.feature }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Generate lockfile
         run: |
