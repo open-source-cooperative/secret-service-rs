@@ -161,7 +161,9 @@ pub struct SecretService<'a> {
 /// return value of [SecretService::search_items]
 /// and [blocking::SecretService::search_items].
 pub struct SearchItemsResult<T> {
+    /// Items that are unlocked.
     pub unlocked: Vec<T>,
+    /// Items that are locked.
     pub locked: Vec<T>,
 }
 
@@ -344,6 +346,7 @@ impl<'a> SecretService<'a> {
         Ok(())
     }
 
+    /// Get an item by its dbus object path.
     pub async fn get_item_by_path(&'a self, item_path: OwnedObjectPath) -> Result<Item<'a>, Error> {
         Item::new(
             self.conn.clone(),
@@ -354,6 +357,7 @@ impl<'a> SecretService<'a> {
         .await
     }
 
+    /// Get a collection by its dbus object path.
     pub async fn get_collection_by_path(
         &'a self,
         collection_path: OwnedObjectPath,

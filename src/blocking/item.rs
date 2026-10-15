@@ -9,9 +9,11 @@ use crate::util::{LockAction, exec_prompt_blocking, format_secret, lock_or_unloc
 use std::collections::HashMap;
 use zbus::{proxy::CacheProperties, zvariant::OwnedObjectPath};
 
+/// A Secret Service item.
 pub struct Item<'a> {
     conn: zbus::blocking::Connection,
     session: &'a Session,
+    /// The dbus object path of the item.
     pub item_path: OwnedObjectPath,
     item_proxy: ItemProxyBlocking<'a>,
     service_proxy: &'a ServiceProxyBlocking<'a>,
@@ -38,10 +40,12 @@ impl<'a> Item<'a> {
         })
     }
 
+    /// Whether the item is locked.
     pub fn is_locked(&self) -> Result<bool, Error> {
         Ok(self.item_proxy.locked()?)
     }
 
+    /// Return [Error::Locked] if the item is locked.
     pub fn ensure_unlocked(&self) -> Result<(), Error> {
         if self.is_locked()? {
             Err(Error::Locked)
@@ -50,6 +54,7 @@ impl<'a> Item<'a> {
         }
     }
 
+    /// Unlock the item.
     pub fn unlock(&self) -> Result<(), Error> {
         lock_or_unlock_blocking(
             self.conn.clone(),
@@ -59,6 +64,7 @@ impl<'a> Item<'a> {
         )
     }
 
+    /// Lock the item.
     pub fn lock(&self) -> Result<(), Error> {
         lock_or_unlock_blocking(
             self.conn.clone(),
@@ -68,18 +74,22 @@ impl<'a> Item<'a> {
         )
     }
 
+    /// Get the item's attributes.
     pub fn get_attributes(&self) -> Result<HashMap<String, String>, Error> {
         Ok(self.item_proxy.attributes()?)
     }
 
+    /// Replace the item's attributes.
     pub fn set_attributes(&self, attributes: HashMap<&str, &str>) -> Result<(), Error> {
         Ok(self.item_proxy.set_attributes(attributes)?)
     }
 
+    /// Get the item's label.
     pub fn get_label(&self) -> Result<String, Error> {
         Ok(self.item_proxy.label()?)
     }
 
+    /// Set the item's label.
     pub fn set_label(&self, new_label: &str) -> Result<(), Error> {
         Ok(self.item_proxy.set_label(new_label)?)
     }
@@ -98,6 +108,8 @@ impl<'a> Item<'a> {
         Ok(())
     }
 
+    /// Get the item's secret, decrypted with the session key when one
+    /// is in use.
     pub fn get_secret(&self) -> Result<Vec<u8>, Error> {
         let secret_struct = self.item_proxy.get_secret(&self.session.object_path)?;
         let secret = secret_struct.value;
@@ -118,6 +130,7 @@ impl<'a> Item<'a> {
         }
     }
 
+    /// Get the MIME type of the item's secret.
     pub fn get_secret_content_type(&self) -> Result<String, Error> {
         let secret_struct = self.item_proxy.get_secret(&self.session.object_path)?;
         let content_type = secret_struct.content_type;
@@ -125,15 +138,18 @@ impl<'a> Item<'a> {
         Ok(content_type)
     }
 
+    /// Replace the item's secret and its MIME type.
     pub fn set_secret(&self, secret: &[u8], content_type: &str) -> Result<(), Error> {
         let secret_struct = format_secret(self.session, secret, content_type)?;
         Ok(self.item_proxy.set_secret(secret_struct)?)
     }
 
+    /// Get the time the item was created, in seconds since the Unix epoch.
     pub fn get_created(&self) -> Result<u64, Error> {
         Ok(self.item_proxy.created()?)
     }
 
+    /// Get the time the item was last modified, in seconds since the Unix epoch.
     pub fn get_modified(&self) -> Result<u64, Error> {
         Ok(self.item_proxy.modified()?)
     }

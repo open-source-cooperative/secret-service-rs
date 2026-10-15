@@ -25,4 +25,4 @@ jobs:
           toolchain: stable
       - run: cargo doc --no-deps --features rt-tokio-crypto-rust
         env:
-          RUSTDOCFLAGS: -D warnings
+          RUSTDOCFLAGS: -D warnings -D missing_docs
