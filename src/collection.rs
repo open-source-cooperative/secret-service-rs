@@ -12,12 +12,13 @@ use zbus::{
     zvariant::{Dict, ObjectPath, OwnedObjectPath, Value},
 };
 
-// Collection struct.
-// Should always be created from the SecretService entry point,
-// whether through a new collection or a collection search
+/// Collection struct.
+/// Should always be created from the [`SecretService`](crate::SecretService) entry point,
+/// whether through a new collection or a collection search
 pub struct Collection<'a> {
     conn: zbus::Connection,
     session: &'a Session,
+    /// The dbus object path of the collection.
     pub collection_path: OwnedObjectPath,
     collection_proxy: CollectionProxy<'a>,
     service_proxy: &'a ServiceProxy<'a>,
@@ -46,10 +47,12 @@ impl<'a> Collection<'a> {
         })
     }
 
+    /// Whether the collection is locked.
     pub async fn is_locked(&self) -> Result<bool, Error> {
         Ok(self.collection_proxy.locked().await?)
     }
 
+    /// Return [Error::Locked] if the collection is locked.
     pub async fn ensure_unlocked(&self) -> Result<(), Error> {
         if self.is_locked().await? {
             Err(Error::Locked)
@@ -58,6 +61,7 @@ impl<'a> Collection<'a> {
         }
     }
 
+    /// Unlock the collection.
     pub async fn unlock(&self) -> Result<(), Error> {
         lock_or_unlock(
             self.conn.clone(),
@@ -68,6 +72,7 @@ impl<'a> Collection<'a> {
         .await
     }
 
+    /// Lock the collection.
     pub async fn lock(&self) -> Result<(), Error> {
         lock_or_unlock(
             self.conn.clone(),
@@ -92,6 +97,7 @@ impl<'a> Collection<'a> {
         Ok(())
     }
 
+    /// Get all items in the collection.
     pub async fn get_all_items(&self) -> Result<Vec<Item<'_>>, Error> {
         let items = self.collection_proxy.items().await?;
 
@@ -109,6 +115,7 @@ impl<'a> Collection<'a> {
         .collect::<Result<_, _>>()
     }
 
+    /// Search the collection's items by attributes.
     pub async fn search_items(
         &self,
         attributes: HashMap<&str, &str>,
@@ -129,14 +136,17 @@ impl<'a> Collection<'a> {
         .collect::<Result<_, _>>()
     }
 
+    /// Get the collection's label.
     pub async fn get_label(&self) -> Result<String, Error> {
         Ok(self.collection_proxy.label().await?)
     }
 
+    /// Set the collection's label.
     pub async fn set_label(&self, new_label: &str) -> Result<(), Error> {
         Ok(self.collection_proxy.set_label(new_label).await?)
     }
 
+    /// Create a new item in the collection, replacing any item with the same attributes if `replace` is true.
     pub async fn create_item(
         &self,
         label: &str,
