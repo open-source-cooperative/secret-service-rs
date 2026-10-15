@@ -9,15 +9,10 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    name: CI
-    uses: $/.github/workflows/ci.yaml
-
   publish:
     name: Publish
     runs-on: ubuntu-latest
     environment: release
-    needs: ci
     permissions:
       contents: read
       id-token: write
