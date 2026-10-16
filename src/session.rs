@@ -53,9 +53,12 @@ type AesKey = Array<u8, U16>;
 /// AES-CBC initialization vector
 pub type AesIv = [u8; 16];
 
+/// The encryption of secrets within a session.
 #[derive(Debug, Eq, PartialEq)]
 pub enum EncryptionType {
+    /// Secrets are passed unencrypted.
     Plain,
+    /// Secrets are encrypted with a key from a Diffie-Hellman exchange.
     Dh,
 }
 

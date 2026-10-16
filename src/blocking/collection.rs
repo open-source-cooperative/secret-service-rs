@@ -12,12 +12,13 @@ use zbus::{
     zvariant::{Dict, ObjectPath, OwnedObjectPath, Value},
 };
 
-// Collection struct.
-// Should always be created from the SecretService entry point,
-// whether through a new collection or a collection search
+/// Collection struct.
+/// Should always be created from the [`SecretService`](crate::blocking::SecretService) entry point,
+/// whether through a new collection or a collection search
 pub struct Collection<'a> {
     conn: zbus::blocking::Connection,
     session: &'a Session,
+    /// The dbus object path of the collection.
     pub collection_path: OwnedObjectPath,
     collection_proxy: CollectionProxyBlocking<'a>,
     service_proxy: &'a ServiceProxyBlocking<'a>,
@@ -44,10 +45,12 @@ impl<'a> Collection<'a> {
         })
     }
 
+    /// Whether the collection is locked.
     pub fn is_locked(&self) -> Result<bool, Error> {
         Ok(self.collection_proxy.locked()?)
     }
 
+    /// Return [Error::Locked] if the collection is locked.
     pub fn ensure_unlocked(&self) -> Result<(), Error> {
         if self.is_locked()? {
             Err(Error::Locked)
@@ -56,6 +59,7 @@ impl<'a> Collection<'a> {
         }
     }
 
+    /// Unlock the collection.
     pub fn unlock(&self) -> Result<(), Error> {
         lock_or_unlock_blocking(
             self.conn.clone(),
@@ -65,6 +69,7 @@ impl<'a> Collection<'a> {
         )
     }
 
+    /// Lock the collection.
     pub fn lock(&self) -> Result<(), Error> {
         lock_or_unlock_blocking(
             self.conn.clone(),
@@ -88,6 +93,7 @@ impl<'a> Collection<'a> {
         Ok(())
     }
 
+    /// Get all items in the collection.
     pub fn get_all_items(&'a self) -> Result<Vec<Item<'a>>, Error> {
         let items = self.collection_proxy.items()?;
 
@@ -107,6 +113,7 @@ impl<'a> Collection<'a> {
         Ok(res)
     }
 
+    /// Search the collection's items by attributes.
     pub fn search_items(&'a self, attributes: HashMap<&str, &str>) -> Result<Vec<Item<'a>>, Error> {
         let items = self.collection_proxy.search_items(attributes)?;
 
@@ -126,14 +133,17 @@ impl<'a> Collection<'a> {
         Ok(res)
     }
 
+    /// Get the collection's label.
     pub fn get_label(&self) -> Result<String, Error> {
         Ok(self.collection_proxy.label()?)
     }
 
+    /// Set the collection's label.
     pub fn set_label(&self, new_label: &str) -> Result<(), Error> {
         Ok(self.collection_proxy.set_label(new_label)?)
     }
 
+    /// Create a new item in the collection, replacing any item with the same attributes if `replace` is true.
     pub fn create_item(
         &'a self,
         label: &str,

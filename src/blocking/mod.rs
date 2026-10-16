@@ -197,6 +197,7 @@ impl<'a> SecretService<'a> {
         Ok(())
     }
 
+    /// Get an item by its dbus object path.
     pub fn get_item_by_path(&'a self, item_path: OwnedObjectPath) -> Result<Item<'a>, Error> {
         Item::new(
             self.conn.clone(),
@@ -206,6 +207,7 @@ impl<'a> SecretService<'a> {
         )
     }
 
+    /// Get a collection by its dbus object path.
     pub fn get_collection_by_path(
         &'a self,
         collection_path: OwnedObjectPath,
