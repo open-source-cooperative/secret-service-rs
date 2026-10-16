@@ -42,5 +42,8 @@ hybrid-array = "0.4"
 tokio = { version = "1", features = ["rt", "macros"] }
 test-with = { version = "0.15", default-features = false }
 
+[lints.rust]
+unreachable_pub = "warn"
+
 [package.metadata.docs.rs]
 features = ["rt-tokio-crypto-rust"]
