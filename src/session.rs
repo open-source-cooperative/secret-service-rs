@@ -51,7 +51,7 @@ macro_rules! feature_needed {
 
 type AesKey = Array<u8, U16>;
 /// AES-CBC initialization vector
-pub type AesIv = [u8; 16];
+pub(crate) type AesIv = [u8; 16];
 
 /// The encryption of secrets within a session.
 #[derive(Debug, Eq, PartialEq)]
@@ -139,7 +139,7 @@ fn hkdf(ikm: Vec<u8>, salt: Option<&[u8]>, okm: &mut [u8]) {
     feature_needed!()
 }
 
-pub struct Session {
+pub(crate) struct Session {
     pub object_path: OwnedObjectPath,
     aes_key: Option<AesKey>,
 }
@@ -159,7 +159,7 @@ impl Session {
         })
     }
 
-    pub fn new_blocking(
+    pub(crate) fn new_blocking(
         service_proxy: &ServiceProxyBlocking,
         encryption: EncryptionType,
     ) -> Result<Self, Error> {
@@ -184,7 +184,7 @@ impl Session {
         }
     }
 
-    pub async fn new(
+    pub(crate) async fn new(
         service_proxy: &ServiceProxy<'_>,
         encryption: EncryptionType,
     ) -> Result<Self, Error> {
@@ -212,7 +212,7 @@ impl Session {
         }
     }
 
-    pub fn get_aes_key(&self) -> Option<&AesKey> {
+    pub(crate) fn get_aes_key(&self) -> Option<&AesKey> {
         self.aes_key.as_ref()
     }
 }
@@ -235,7 +235,7 @@ fn powm(base: &BigUint, exp: &BigUint, modulus: &BigUint) -> BigUint {
 }
 
 #[cfg(feature = "crypto-rust")]
-pub fn encrypt(data: &[u8], key: &AesKey, iv: &AesIv) -> Vec<u8> {
+pub(crate) fn encrypt(data: &[u8], key: &AesKey, iv: &AesIv) -> Vec<u8> {
     use aes::cipher::block_padding::Pkcs7;
     use aes::cipher::{BlockModeEncrypt, KeyIvInit};
 
@@ -245,7 +245,7 @@ pub fn encrypt(data: &[u8], key: &AesKey, iv: &AesIv) -> Vec<u8> {
 }
 
 #[cfg(feature = "crypto-rust")]
-pub fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &AesIv) -> Result<Vec<u8>, Error> {
+pub(crate) fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &AesIv) -> Result<Vec<u8>, Error> {
     use aes::cipher::block_padding::Pkcs7;
     use aes::cipher::{BlockModeDecrypt, KeyIvInit};
 
@@ -257,7 +257,7 @@ pub fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &AesIv) -> Result<Vec<u8
 }
 
 #[cfg(feature = "crypto-openssl")]
-pub fn encrypt(data: &[u8], key: &AesKey, iv: &[u8]) -> Vec<u8> {
+pub(crate) fn encrypt(data: &[u8], key: &AesKey, iv: &[u8]) -> Vec<u8> {
     use openssl::cipher::Cipher;
     use openssl::cipher_ctx::CipherCtx;
 
@@ -274,7 +274,7 @@ pub fn encrypt(data: &[u8], key: &AesKey, iv: &[u8]) -> Vec<u8> {
 }
 
 #[cfg(feature = "crypto-openssl")]
-pub fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &[u8]) -> Result<Vec<u8>, Error> {
     use openssl::cipher::Cipher;
     use openssl::cipher_ctx::CipherCtx;
 

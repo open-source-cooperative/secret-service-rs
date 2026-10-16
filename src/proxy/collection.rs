@@ -48,7 +48,7 @@ pub trait Collection {
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
-pub struct CreateItemResult {
+pub(crate) struct CreateItemResult {
     pub(crate) item: OwnedObjectPath,
     pub(crate) prompt: OwnedObjectPath,
 }

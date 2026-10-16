@@ -44,25 +44,25 @@ pub trait Service {
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
-pub struct OpenSessionResult {
+pub(crate) struct OpenSessionResult {
     pub(crate) output: OwnedValue,
     pub(crate) result: OwnedObjectPath,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
-pub struct CreateCollectionResult {
+pub(crate) struct CreateCollectionResult {
     pub(crate) collection: OwnedObjectPath,
     pub(crate) prompt: OwnedObjectPath,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
-pub struct SearchItemsResult {
+pub(crate) struct SearchItemsResult {
     pub(crate) unlocked: Vec<OwnedObjectPath>,
     pub(crate) locked: Vec<OwnedObjectPath>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
-pub struct LockActionResult {
+pub(crate) struct LockActionResult {
     pub(crate) object_paths: Vec<OwnedObjectPath>,
     pub(crate) prompt: OwnedObjectPath,
 }
