@@ -93,8 +93,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 ### Migrating from 5
 
-Version 6 uses `zbus` 6 and requires Rust 1.89. The `blocking` module was removed because `zbus` 6 no longer provides a
-blocking API.
+Version 6 uses `zbus` 6 and requires Rust 1.89. The `blocking` module remains available. Its `connect_with_existing`
+method now accepts a `zbus::Connection`, since `zbus::blocking::Connection` no longer exists.
 
 ### Changelog
 
