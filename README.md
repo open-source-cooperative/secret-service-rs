@@ -2,7 +2,7 @@
 
 [![crates.io version](https://img.shields.io/crates/v/secret-service.svg)](https://crates.io/crates/secret-service)
 [![crate documentation](https://docs.rs/secret-service/badge.svg)](https://docs.rs/secret-service)
-![MSRV](https://img.shields.io/badge/rustc-1.87+-blue.svg)
+![MSRV](https://img.shields.io/badge/rustc-1.89+-blue.svg)
 [![crates.io downloads](https://img.shields.io/crates/d/secret-service.svg)](https://crates.io/crates/secret-service)
 ![CI](https://github.com/hwchen/secret-service-rs/workflows/CI/badge.svg)
 
@@ -19,14 +19,14 @@ When adding the crate, you must select a feature representing your selected cryp
 
 ```toml
 [dependencies]
-secret-service = { version = "5", features = ["crypto-rust"] }
+secret-service = { version = "6", features = ["crypto-rust"] }
 ```
 
 If your cargo dependency tree does not already specify the asynchronous runtime to be used by the `zbus` crate, you must select a feature corresponding to your selected runtime (either `rt-tokio` or `rt-async-io`). For example:
 
 ```toml
 [dependencies]
-secret-service = { version = "5", features = ["crypto-rust", "rt-tokio"]}
+secret-service = { version = "6", features = ["crypto-rust", "rt-tokio"]}
 ```
 
 For convenience, the following four combined feature flags are available that select both runtime and cryptography:
@@ -86,6 +86,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 - SecretService: initialize dbus or use existing connection, create plain/encrypted session.
 - Collections: create, delete, search, get-by-path.
 - Items: create, delete, search, get-by-path, get/set secret.
+
+### Migrating from 5
+
+Version 6 uses `zbus` 6 and requires Rust 1.89. It removes the `blocking` module, following
+[zbus's removal of its blocking API](https://github.com/z-galaxy/zbus/pull/1976). Call the async API inside
+`zbus::block_on` if your application does not use an async runtime:
+
+```rust
+let label = zbus::block_on(async {
+    let service = secret_service::SecretService::connect(secret_service::EncryptionType::Dh).await?;
+    let collection = service.get_default_collection().await?;
+    collection.get_label().await
+})?;
+```
 
 ### Changelog
 See [the list of GitHub releases and their release notes](https://github.com/hwchen/secret-service-rs/releases).

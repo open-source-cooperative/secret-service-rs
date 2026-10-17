@@ -3,24 +3,23 @@
 use super::SecretStruct;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Type, Value};
+use zbus::{ObjectPath, OwnedObjectPath, OwnedVariant, Type, Variant};
 
 /// A dbus proxy for speaking with secret service's `Service` Interface.
 ///
 /// This will derive ServiceProxy
 ///
-/// Note that `Value` in the method signatures corresponds to `VARIANT` dbus type.
 #[zbus::proxy(
     interface = "org.freedesktop.Secret.Service",
     default_service = "org.freedesktop.secrets",
     default_path = "/org/freedesktop/secrets"
 )]
 pub trait Service {
-    fn open_session(&self, algorithm: &str, input: Value<'_>) -> zbus::Result<OpenSessionResult>;
+    fn open_session(&self, algorithm: &str, input: Variant<'_>) -> zbus::Result<OpenSessionResult>;
 
     fn create_collection(
         &self,
-        properties: HashMap<&str, Value<'_>>,
+        properties: HashMap<&str, Variant<'_>>,
         alias: &str,
     ) -> zbus::Result<CreateCollectionResult>;
 
@@ -40,12 +39,12 @@ pub trait Service {
     fn set_alias(&self, name: &str, collection: ObjectPath<'_>) -> zbus::Result<()>;
 
     #[zbus(property)]
-    fn collections(&self) -> zbus::fdo::Result<Vec<ObjectPath<'_>>>;
+    fn collections(&self) -> zbus::fdo::Result<Vec<OwnedObjectPath>>;
 }
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct OpenSessionResult {
-    pub(crate) output: OwnedValue,
+    pub(crate) output: OwnedVariant,
     pub(crate) result: OwnedObjectPath,
 }
 

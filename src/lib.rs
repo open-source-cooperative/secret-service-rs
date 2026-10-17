@@ -112,14 +112,12 @@
 //!
 //! ### Async
 //!
-//! This crate, following `zbus`, is async by default. If you want a synchronous interface
-//! that blocks, see the [blocking] module instead.
+//! This crate, following `zbus`, is async. Callers without an async runtime can use `zbus::block_on`.
 //
 // Util currently has interfaces (dbus method namespace) to make it easier to call methods.
 // Util contains function to execute prompts (used in many collection and item methods, like
 // delete)
 
-pub mod blocking;
 mod error;
 mod proxy;
 mod session;
@@ -142,7 +140,7 @@ use crate::ss::SS_COLLECTION_LABEL;
 use crate::util::exec_prompt;
 use futures_util::TryFutureExt;
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
+use zbus::{ObjectPath, OwnedObjectPath, Variant};
 
 /// Secret Service Struct.
 ///
@@ -158,8 +156,7 @@ pub struct SecretService<'a> {
 }
 
 /// Used to indicate locked and unlocked items in the
-/// return value of [SecretService::search_items]
-/// and [blocking::SecretService::search_items].
+/// return value of [SecretService::search_items].
 pub struct SearchItemsResult<T> {
     /// Items that are unlocked.
     pub unlocked: Vec<T>,
@@ -208,7 +205,7 @@ impl<'a> SecretService<'a> {
                 self.conn.clone(),
                 &self.session,
                 &self.service_proxy,
-                object_path.into(),
+                object_path,
             )
         }))
         .await
@@ -269,7 +266,7 @@ impl<'a> SecretService<'a> {
         label: &str,
         alias: &str,
     ) -> Result<Collection<'_>, Error> {
-        let mut properties: HashMap<&str, Value> = HashMap::new();
+        let mut properties: HashMap<&str, Variant> = HashMap::new();
         properties.insert(SS_COLLECTION_LABEL, label.into());
 
         let created_collection = self
@@ -376,7 +373,7 @@ impl<'a> SecretService<'a> {
 mod test {
     use super::*;
     use std::convert::TryFrom;
-    use zbus::zvariant::ObjectPath;
+    use zbus::ObjectPath;
 
     #[tokio::test]
     async fn should_create_secret_service() {
