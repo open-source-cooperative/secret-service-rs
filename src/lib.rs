@@ -110,11 +110,15 @@
 //! Specifics in SecretService API Draft Proposal:
 //! <https://standards.freedesktop.org/secret-service/>
 //!
+//! ### Blocking
+//!
+//! The [blocking] module provides synchronous wrappers for callers outside an async runtime.
 //
 // Util currently has interfaces (dbus method namespace) to make it easier to call methods.
 // Util contains function to execute prompts (used in many collection and item methods, like
 // delete)
 
+pub mod blocking;
 mod error;
 mod proxy;
 mod session;
@@ -153,7 +157,8 @@ pub struct SecretService<'a> {
 }
 
 /// Used to indicate locked and unlocked items in the
-/// return value of [SecretService::search_items].
+/// return value of [SecretService::search_items]
+/// and [blocking::SecretService::search_items].
 pub struct SearchItemsResult<T> {
     /// Items that are unlocked.
     pub unlocked: Vec<T>,
