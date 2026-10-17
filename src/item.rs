@@ -7,7 +7,7 @@ use crate::ss::SS_DBUS_NAME;
 use crate::util::{LockAction, exec_prompt, format_secret, lock_or_unlock};
 
 use std::collections::HashMap;
-use zbus::{proxy::CacheProperties, zvariant::OwnedObjectPath};
+use zbus::{OwnedObjectPath, proxy::CacheProperties};
 
 /// A Secret Service item.
 pub struct Item<'a> {
@@ -27,8 +27,8 @@ impl<'a> Item<'a> {
         item_path: OwnedObjectPath,
     ) -> Result<Item<'a>, Error> {
         let item_proxy = ItemProxy::builder(&conn)
-            .destination(SS_DBUS_NAME)?
-            .path(item_path.clone())?
+            .destination(SS_DBUS_NAME)
+            .path(item_path.clone())
             .cache_properties(CacheProperties::No)
             .build()
             .await?;

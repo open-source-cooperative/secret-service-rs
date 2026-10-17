@@ -5,17 +5,14 @@
 
 use crate::error::Error;
 use crate::proxy::SecretStruct;
-use crate::proxy::prompt::{Completed, PromptProxy, PromptProxyBlocking};
-use crate::proxy::service::{ServiceProxy, ServiceProxyBlocking};
+use crate::proxy::prompt::{Completed, PromptProxy};
+use crate::proxy::service::ServiceProxy;
 use crate::session::Session;
 use crate::session::encrypt;
 use crate::ss::SS_DBUS_NAME;
 
 use futures_util::StreamExt;
-use zbus::{
-    proxy::CacheProperties,
-    zvariant::{self, ObjectPath},
-};
+use zbus::{ObjectPath, OwnedVariant, proxy::CacheProperties};
 
 // Helper enum for locking
 pub(crate) enum LockAction {
@@ -38,25 +35,6 @@ pub(crate) async fn lock_or_unlock(
 
     if lock_action_res.object_paths.is_empty() {
         exec_prompt(conn, &lock_action_res.prompt).await?;
-    }
-    Ok(())
-}
-
-pub(crate) fn lock_or_unlock_blocking(
-    conn: zbus::blocking::Connection,
-    service_proxy: &ServiceProxyBlocking,
-    object_path: &ObjectPath,
-    lock_action: LockAction,
-) -> Result<(), Error> {
-    let objects = vec![object_path];
-
-    let lock_action_res = match lock_action {
-        LockAction::Lock => service_proxy.lock(objects)?,
-        LockAction::Unlock => service_proxy.unlock(objects)?,
-    };
-
-    if lock_action_res.object_paths.is_empty() {
-        exec_prompt_blocking(conn, &lock_action_res.prompt)?;
     }
     Ok(())
 }
@@ -104,10 +82,10 @@ const NO_WINDOW_ID: &str = "";
 pub(crate) async fn exec_prompt(
     conn: zbus::Connection,
     prompt: &ObjectPath<'_>,
-) -> Result<zvariant::OwnedValue, Error> {
+) -> Result<OwnedVariant, Error> {
     let prompt_proxy = PromptProxy::builder(&conn)
-        .destination(SS_DBUS_NAME)?
-        .path(prompt)?
+        .destination(SS_DBUS_NAME)
+        .path(prompt)
         .cache_properties(CacheProperties::No)
         .build()
         .await?;
@@ -118,23 +96,7 @@ pub(crate) async fn exec_prompt(
     handle_signal(receive_completed_iter.next().await)
 }
 
-pub(crate) fn exec_prompt_blocking(
-    conn: zbus::blocking::Connection,
-    prompt: &ObjectPath,
-) -> Result<zvariant::OwnedValue, Error> {
-    let prompt_proxy = PromptProxyBlocking::builder(&conn)
-        .destination(SS_DBUS_NAME)?
-        .path(prompt)?
-        .cache_properties(CacheProperties::No)
-        .build()?;
-
-    let mut receive_completed_iter = prompt_proxy.receive_completed()?;
-    prompt_proxy.prompt(NO_WINDOW_ID)?;
-
-    handle_signal(receive_completed_iter.next())
-}
-
-fn handle_signal(signal: Option<Completed>) -> Result<zvariant::OwnedValue, Error> {
+fn handle_signal(signal: Option<Completed>) -> Result<OwnedVariant, Error> {
     // The signal stream ends without yielding a `Completed` signal when the
     // connection it was created from is closed, so the prompt can no longer
     // complete and we have no way of knowing whether it was accepted.
@@ -144,7 +106,7 @@ fn handle_signal(signal: Option<Completed>) -> Result<zvariant::OwnedValue, Erro
     if args.dismissed {
         Err(Error::Prompt)
     } else {
-        zvariant::OwnedValue::try_from(args.result).map_err(From::from)
+        OwnedVariant::try_from(args.result).map_err(From::from)
     }
 }
 
