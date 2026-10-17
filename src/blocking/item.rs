@@ -2,7 +2,9 @@ use crate::Error;
 use std::collections::HashMap;
 use zbus::OwnedObjectPath;
 
+/// A Secret Service item.
 pub struct Item<'a> {
+    /// The dbus object path of the item.
     pub item_path: OwnedObjectPath,
     pub(crate) inner: crate::Item<'a>,
 }
@@ -17,58 +19,73 @@ impl<'a> From<crate::Item<'a>> for Item<'a> {
 }
 
 impl Item<'_> {
+    /// Whether the item is locked.
     pub fn is_locked(&self) -> Result<bool, Error> {
         zruntime::block_on(self.inner.is_locked())
     }
 
+    /// Return [Error::Locked] if the item is locked.
     pub fn ensure_unlocked(&self) -> Result<(), Error> {
         zruntime::block_on(self.inner.ensure_unlocked())
     }
 
+    /// Unlock the item.
     pub fn unlock(&self) -> Result<(), Error> {
         zruntime::block_on(self.inner.unlock())
     }
 
+    /// Lock the item.
     pub fn lock(&self) -> Result<(), Error> {
         zruntime::block_on(self.inner.lock())
     }
 
+    /// Get the item's attributes.
     pub fn get_attributes(&self) -> Result<HashMap<String, String>, Error> {
         zruntime::block_on(self.inner.get_attributes())
     }
 
+    /// Replace the item's attributes.
     pub fn set_attributes(&self, attributes: HashMap<&str, &str>) -> Result<(), Error> {
         zruntime::block_on(self.inner.set_attributes(attributes))
     }
 
+    /// Get the item's label.
     pub fn get_label(&self) -> Result<String, Error> {
         zruntime::block_on(self.inner.get_label())
     }
 
+    /// Set the item's label.
     pub fn set_label(&self, new_label: &str) -> Result<(), Error> {
         zruntime::block_on(self.inner.set_label(new_label))
     }
 
+    /// Deletes dbus object, but struct instance still exists (current implementation)
     pub fn delete(&self) -> Result<(), Error> {
         zruntime::block_on(self.inner.delete())
     }
 
+    /// Get the item's secret, decrypted with the session key when one
+    /// is in use.
     pub fn get_secret(&self) -> Result<Vec<u8>, Error> {
         zruntime::block_on(self.inner.get_secret())
     }
 
+    /// Get the MIME type of the item's secret.
     pub fn get_secret_content_type(&self) -> Result<String, Error> {
         zruntime::block_on(self.inner.get_secret_content_type())
     }
 
+    /// Replace the item's secret and its MIME type.
     pub fn set_secret(&self, secret: &[u8], content_type: &str) -> Result<(), Error> {
         zruntime::block_on(self.inner.set_secret(secret, content_type))
     }
 
+    /// Get the time the item was created, in seconds since the Unix epoch.
     pub fn get_created(&self) -> Result<u64, Error> {
         zruntime::block_on(self.inner.get_created())
     }
 
+    /// Get the time the item was last modified, in seconds since the Unix epoch.
     pub fn get_modified(&self) -> Result<u64, Error> {
         zruntime::block_on(self.inner.get_modified())
     }
@@ -98,6 +115,7 @@ mod test {
         let item = create_test_default_item(&collection);
 
         item.delete().unwrap();
+        // Random operation to prove that path no longer exists
         if item.get_label().is_ok() {
             panic!("item still existed");
         }
@@ -143,6 +161,7 @@ mod test {
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
+        // Set label to test and check
         item.set_label("Tester").unwrap();
         let label = item.get_label().unwrap();
         assert_eq!(label, "Tester");
@@ -152,6 +171,7 @@ mod test {
     #[test]
     fn should_get_item_by_path() {
         let path: OwnedObjectPath;
+        // first create the item on one blocking call, set its label, and get its path
         {
             let ss = SecretService::connect(EncryptionType::Plain).unwrap();
             let collection = ss.get_default_collection().unwrap();
@@ -159,6 +179,7 @@ mod test {
             item.set_label("Tester").unwrap();
             path = item.item_path.clone();
         }
+        // now get the item by path on another blocking call, check its label, and delete it
         {
             let ss = SecretService::connect(EncryptionType::Plain).unwrap();
             let item = ss.get_item_by_path(path).unwrap();
@@ -202,6 +223,7 @@ mod test {
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
+        // Also test empty array handling
         item.set_attributes(HashMap::new()).unwrap();
         item.set_attributes(HashMap::from([("test_attributes_in_item_get", "test")]))
             .unwrap();
