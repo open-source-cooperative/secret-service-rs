@@ -10,23 +10,25 @@ A rust library for interacting with the FreeDesktop Secret Service API through D
 
 ### Basic Usage
 
-`secret-service` is implemented in pure Rust by default, so it doesn't require any system libraries
-such as `libdbus-1-dev` or `libdbus-1-3` on Ubuntu.
+`secret-service` is implemented in pure Rust by default, so it doesn't require any system libraries such as
+`libdbus-1-dev` or `libdbus-1-3` on Ubuntu.
 
 **In Cargo.toml:**
 
-When adding the crate, you must select a feature representing your selected cryptography backend (either `crypto-rust` or `crypto-openssl`). For example:
+When adding the crate, you must select a feature representing your selected cryptography backend (either `crypto-rust`
+or `crypto-openssl`). For example:
 
 ```toml
 [dependencies]
 secret-service = { version = "6", features = ["crypto-rust"] }
 ```
 
-If your cargo dependency tree does not already specify the asynchronous runtime to be used by the `zbus` crate, you must select a feature corresponding to your selected runtime (either `rt-tokio` or `rt-async-io`). For example:
+If your cargo dependency tree does not already specify the asynchronous runtime to be used by the `zbus` crate, you must
+select a feature corresponding to your selected runtime (either `rt-tokio` or `rt-async-io`). For example:
 
 ```toml
 [dependencies]
-secret-service = { version = "6", features = ["crypto-rust", "rt-tokio"]}
+secret-service = { version = "6", features = ["crypto-rust", "rt-tokio"] }
 ```
 
 For convenience, the following four combined feature flags are available that select both runtime and cryptography:
@@ -36,9 +38,11 @@ For convenience, the following four combined feature flags are available that se
 - `rt-tokio-crypto-rust`: Tokio runtime and pure Rust cryptography.
 - `rt-tokio-crypto-openssl`: Tokio runtime and OpenSSL cryptography.
 
-Note that using OpenSSL cryptography requires the OpenSSL development libraries be installed on your build system. If they are not, you can activate the `bundled` feature of the `openssl` crate in your cargo dependencies to statically link OpenSSL cryptography into your application.
+Note that using OpenSSL cryptography requires the OpenSSL development libraries be installed on your build system. If
+they are not, you can activate the `bundled` feature of the `openssl` crate in your cargo dependencies to statically
+link OpenSSL cryptography into your application.
 
-**In source code:** 
+**In source code:**
 
 This example is an application built with the Tokio runtime.
 
@@ -89,26 +93,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 ### Migrating from 5
 
-Version 6 uses `zbus` 6 and requires Rust 1.89. The `blocking` module remains available. Its `connect_with_existing`
-method now accepts a `zbus::Connection`, since `zbus::blocking::Connection` no longer exists.
+Version 6 uses `zbus` 6 and requires Rust 1.89. `blocking::SecretService::connect_with_existing` now accepts a
+`zbus::Connection`, since `zbus::blocking::Connection` no longer exists.
 
 ### Changelog
+
 See [the list of GitHub releases and their release notes](https://github.com/hwchen/secret-service-rs/releases).
 
 ### Versioning
-This library is feature complete and has stabilized its API for the most part. However, as this
-crate is almost soley reliable on the `zbus` crate, we try and match major version releases
-with theirs to handle breaking changes and move with the wider `zbus` ecosystem.
+
+This library is feature complete and has stabilized its API for the most part. However, as this crate is almost soley
+reliable on the `zbus` crate, we try and match major version releases with theirs to handle breaking changes and move
+with the wider `zbus` ecosystem.
 
 ## License
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as
+defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
