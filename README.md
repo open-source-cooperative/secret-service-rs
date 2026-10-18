@@ -89,17 +89,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 ### Migrating from 5
 
-Version 6 uses `zbus` 6 and requires Rust 1.89. It removes the `blocking` module, following
-[zbus's removal of its blocking API](https://github.com/z-galaxy/zbus/pull/1976). Call the async API inside
-`zbus::block_on` if your application does not use an async runtime:
-
-```rust
-let label = zbus::block_on(async {
-    let service = secret_service::SecretService::connect(secret_service::EncryptionType::Dh).await?;
-    let collection = service.get_default_collection().await?;
-    collection.get_label().await
-})?;
-```
+Version 6 uses `zbus` 6 and requires Rust 1.89. The `blocking` module remains available. Its `connect_with_existing`
+method now accepts a `zbus::Connection`, since `zbus::blocking::Connection` no longer exists.
 
 ### Changelog
 See [the list of GitHub releases and their release notes](https://github.com/hwchen/secret-service-rs/releases).
