@@ -106,7 +106,51 @@ mod test {
     fn should_check_if_collection_locked() {
         let ss = SecretService::connect(EncryptionType::Plain).unwrap();
         let collection = ss.get_default_collection().unwrap();
-        let _ = collection.is_locked().unwrap();
+        assert!(!collection.is_locked().unwrap());
+    }
+
+    #[test]
+    fn missing_collection_has_no_lock_state() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.is_locked().is_err());
+    }
+
+    #[test]
+    fn missing_collection_cannot_be_confirmed_unlocked() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.ensure_unlocked().is_err());
+    }
+
+    #[test]
+    fn missing_collection_cannot_be_deleted() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.delete().is_err());
+    }
+
+    #[test]
+    fn missing_collection_cannot_be_renamed() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.set_label("test").is_err());
     }
 
     #[test]
@@ -155,7 +199,18 @@ mod test {
     fn should_get_all_items() {
         let ss = SecretService::connect(EncryptionType::Plain).unwrap();
         let collection = ss.get_default_collection().unwrap();
-        collection.get_all_items().unwrap();
+        let item = collection
+            .create_item(
+                "all_items_test",
+                HashMap::new(),
+                b"test",
+                false,
+                "text/plain",
+            )
+            .unwrap();
+        let items = collection.get_all_items().unwrap();
+        assert!(items.iter().any(|found| found.item_path == item.item_path));
+        item.delete().unwrap();
     }
 
     #[test]
@@ -233,5 +288,21 @@ mod test {
             let label_prime = collection_prime.get_label().unwrap();
             assert_eq!(label, label_prime);
         }
+    }
+
+    #[test]
+    fn should_get_collection_label_from_service() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss.get_default_collection().unwrap();
+        let async_service =
+            zruntime::block_on(crate::SecretService::connect(EncryptionType::Plain)).unwrap();
+        let async_collection = zruntime::block_on(
+            async_service.get_collection_by_path(collection.collection_path.clone()),
+        )
+        .unwrap();
+        assert_eq!(
+            collection.get_label().unwrap(),
+            zruntime::block_on(async_collection.get_label()).unwrap()
+        );
     }
 }

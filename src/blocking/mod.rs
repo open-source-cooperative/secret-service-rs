@@ -153,6 +153,16 @@ mod test {
     }
 
     #[test]
+    fn unlock_all_reports_a_closed_connection() {
+        let connection = zruntime::block_on(zbus::Connection::session()).unwrap();
+        let service =
+            SecretService::connect_with_existing(EncryptionType::Plain, connection.clone())
+                .unwrap();
+        zruntime::block_on(connection.close()).unwrap();
+        assert!(service.unlock_all(&[]).is_err());
+    }
+
+    #[test]
     fn should_get_all_collections() {
         // Assumes that there will always be a default
         // collection

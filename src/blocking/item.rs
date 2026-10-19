@@ -127,8 +127,26 @@ mod test {
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
-        item.is_locked().unwrap();
+        assert!(!item.is_locked().unwrap());
         item.delete().unwrap();
+    }
+
+    #[test]
+    fn deleted_item_does_not_report_a_lock_state() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss.get_default_collection().unwrap();
+        let item = create_test_default_item(&collection);
+        item.delete().unwrap();
+        assert!(item.is_locked().is_err());
+    }
+
+    #[test]
+    fn deleted_item_cannot_be_confirmed_unlocked() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss.get_default_collection().unwrap();
+        let item = create_test_default_item(&collection);
+        item.delete().unwrap();
+        assert!(item.ensure_unlocked().is_err());
     }
 
     #[test]
@@ -249,8 +267,8 @@ mod test {
         let item = create_test_default_item(&collection);
 
         item.set_label("Tester").unwrap();
-        let _created = item.get_created().unwrap();
-        let _modified = item.get_modified().unwrap();
+        assert!(item.get_created().unwrap() > 1);
+        assert!(item.get_modified().unwrap() > 1);
         item.delete().unwrap();
     }
 

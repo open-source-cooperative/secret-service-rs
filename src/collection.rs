@@ -256,7 +256,19 @@ mod test {
     async fn should_get_all_items() {
         let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
-        collection.get_all_items().await.unwrap();
+        let item = collection
+            .create_item(
+                "all_items_test",
+                HashMap::new(),
+                b"test",
+                false,
+                "text/plain",
+            )
+            .await
+            .unwrap();
+        let items = collection.get_all_items().await.unwrap();
+        assert!(items.iter().any(|found| found.item_path == item.item_path));
+        item.delete().await.unwrap();
     }
 
     #[tokio::test]

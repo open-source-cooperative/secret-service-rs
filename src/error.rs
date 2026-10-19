@@ -61,3 +61,25 @@ impl From<zbus::fdo::Error> for Error {
         Error::ZbusFdo(err)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Error;
+
+    #[test]
+    fn zbus_error_exposes_its_source() {
+        let error = Error::Zbus(zbus::Error::Failure("test".into()));
+        assert!(std::error::Error::source(&error).is_some());
+    }
+
+    #[test]
+    fn fdo_error_exposes_its_source() {
+        let error = Error::ZbusFdo(zbus::fdo::Error::Failed("test".into()));
+        assert!(std::error::Error::source(&error).is_some());
+    }
+
+    #[test]
+    fn error_displays_its_message() {
+        assert_eq!(Error::Locked.to_string(), "SS Error: object locked");
+    }
+}
