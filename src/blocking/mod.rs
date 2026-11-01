@@ -1,22 +1,16 @@
 //! A blocking secret service API.
 //!
-//! This `SecretService` will block the current thread when making requests to the
+//! This `SecretService` blocks the current thread when making requests to the
 //! secret service server instead of returning futures.
 //!
-//! It is important to not call this these functions in an async context or otherwise the runtime
-//! may stall. See [zbus's blocking documentation] for more details. If you are in an async context,
-//! you should use the [async `SecretService`] instead.
+//! Do not call these methods in an async context, where they can stall the runtime.
+//! Use the [async `SecretService`] there instead.
 //!
-//! [zbus's blocking documentation]: https://docs.rs/zbus/latest/zbus/blocking/index.html
 //! [async `SecretService`]: crate::SecretService
 
-use crate::session::Session;
-use crate::ss::SS_COLLECTION_LABEL;
-use crate::util;
 use crate::{EncryptionType, Error, SearchItemsResult};
-use crate::{proxy::service::ServiceProxyBlocking, util::exec_prompt_blocking};
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
+use zbus::OwnedObjectPath;
 
 mod collection;
 pub use collection::Collection;
@@ -31,18 +25,17 @@ pub use item::Item;
 /// and negotiate a new cryptographic session
 /// ([EncryptionType::Plain] or [EncryptionType::Dh])
 pub struct SecretService<'a> {
-    conn: zbus::blocking::Connection,
-    session: Session,
-    service_proxy: ServiceProxyBlocking<'a>,
+    inner: crate::SecretService<'a>,
 }
 
 impl<'a> SecretService<'a> {
     /// Create a new [SecretService] instance.
     ///
     /// This will initialize its own connection to the session bus.
-    pub fn connect(encryption: EncryptionType) -> Result<SecretService<'a>, Error> {
-        let conn = zbus::blocking::Connection::session().map_err(util::handle_conn_error)?;
-        Self::connect_with_existing(encryption, conn)
+    pub fn connect(encryption: EncryptionType) -> Result<Self, Error> {
+        Ok(Self {
+            inner: zruntime::block_on(crate::SecretService::connect(encryption))?,
+        })
     }
 
     /// Creates a new [SecretService] instance, utilizing an existing connection handle.
@@ -50,34 +43,22 @@ impl<'a> SecretService<'a> {
     /// `session_conn` should be connected to the session/user message bus.
     pub fn connect_with_existing(
         encryption: EncryptionType,
-        session_conn: zbus::blocking::Connection,
-    ) -> Result<SecretService<'a>, Error> {
-        let service_proxy =
-            ServiceProxyBlocking::new(&session_conn).map_err(util::handle_conn_error)?;
-
-        let session = Session::new_blocking(&service_proxy, encryption)?;
-
-        Ok(SecretService {
-            conn: session_conn,
-            session,
-            service_proxy,
+        session_conn: zbus::Connection,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            inner: zruntime::block_on(crate::SecretService::connect_with_existing(
+                encryption,
+                session_conn,
+            ))?,
         })
     }
 
     /// Get all collections
     pub fn get_all_collections(&'a self) -> Result<Vec<Collection<'a>>, Error> {
-        let collections = self.service_proxy.collections()?;
-        collections
+        Ok(zruntime::block_on(self.inner.get_all_collections())?
             .into_iter()
-            .map(|object_path| {
-                Collection::new(
-                    self.conn.clone(),
-                    &self.session,
-                    &self.service_proxy,
-                    object_path.into(),
-                )
-            })
-            .collect()
+            .map(Collection::from)
+            .collect())
     }
 
     /// Get collection by alias.
@@ -86,24 +67,17 @@ impl<'a> SecretService<'a> {
     /// is also a specific method for getting the collection
     /// by default alias.
     pub fn get_collection_by_alias(&'a self, alias: &str) -> Result<Collection<'a>, Error> {
-        let object_path = self.service_proxy.read_alias(alias)?;
-
-        if object_path.as_str() == "/" {
-            Err(Error::NoResult)
-        } else {
-            Ok(Collection::new(
-                self.conn.clone(),
-                &self.session,
-                &self.service_proxy,
-                object_path,
-            )?)
-        }
+        Ok(Collection::from(zruntime::block_on(
+            self.inner.get_collection_by_alias(alias),
+        )?))
     }
 
     /// Get default collection.
     /// (The collection whose alias is `default`)
     pub fn get_default_collection(&'a self) -> Result<Collection<'a>, Error> {
-        self.get_collection_by_alias("default")
+        Ok(Collection::from(zruntime::block_on(
+            self.inner.get_default_collection(),
+        )?))
     }
 
     /// Get any collection.
@@ -111,51 +85,16 @@ impl<'a> SecretService<'a> {
     /// collection, then the first collection when it
     /// gets all collections.
     pub fn get_any_collection(&'a self) -> Result<Collection<'a>, Error> {
-        // default first, then session, then first
-
-        self.get_default_collection()
-            .or_else(|_| self.get_collection_by_alias("session"))
-            .or_else(|_| {
-                let mut collections = self.get_all_collections()?;
-                if collections.is_empty() {
-                    Err(Error::NoResult)
-                } else {
-                    Ok(collections.swap_remove(0))
-                }
-            })
+        Ok(Collection::from(zruntime::block_on(
+            self.inner.get_any_collection(),
+        )?))
     }
 
     /// Creates a new collection with a label and an alias.
     pub fn create_collection(&'a self, label: &str, alias: &str) -> Result<Collection<'a>, Error> {
-        let mut properties: HashMap<&str, Value> = HashMap::new();
-        properties.insert(SS_COLLECTION_LABEL, label.into());
-
-        let created_collection = self.service_proxy.create_collection(properties, alias)?;
-
-        // This prompt handling is practically identical to create_collection
-        let collection_path: ObjectPath = {
-            // Get path of created object
-            let created_path = created_collection.collection;
-
-            // Check if that path is "/", if so should execute a prompt
-            if created_path.as_str() == "/" {
-                let prompt_path = created_collection.prompt;
-
-                // Exec prompt and parse result
-                let prompt_res = exec_prompt_blocking(self.conn.clone(), &prompt_path)?;
-                prompt_res.try_into()?
-            } else {
-                // if not, just return created path
-                created_path.into()
-            }
-        };
-
-        Collection::new(
-            self.conn.clone(),
-            &self.session,
-            &self.service_proxy,
-            collection_path.into(),
-        )
+        Ok(Collection::from(zruntime::block_on(
+            self.inner.create_collection(label, alias),
+        )?))
     }
 
     /// Searches all items by attributes
@@ -163,48 +102,24 @@ impl<'a> SecretService<'a> {
         &'a self,
         attributes: HashMap<&str, &str>,
     ) -> Result<SearchItemsResult<Item<'a>>, Error> {
-        let items = self.service_proxy.search_items(attributes)?;
-
-        let object_paths_to_items = |items: Vec<_>| {
-            items
-                .into_iter()
-                .map(|item_path| {
-                    Item::new(
-                        self.conn.clone(),
-                        &self.session,
-                        &self.service_proxy,
-                        item_path,
-                    )
-                })
-                .collect::<Result<_, _>>()
-        };
-
+        let found = zruntime::block_on(self.inner.search_items(attributes))?;
         Ok(SearchItemsResult {
-            unlocked: object_paths_to_items(items.unlocked)?,
-            locked: object_paths_to_items(items.locked)?,
+            unlocked: found.unlocked.into_iter().map(Item::from).collect(),
+            locked: found.locked.into_iter().map(Item::from).collect(),
         })
     }
 
     /// Unlock all items in a batch
-    pub fn unlock_all(&'a self, items: &[&Item]) -> Result<(), Error> {
-        let objects = items.iter().map(|i| &*i.item_path).collect();
-        let lock_action_res = self.service_proxy.unlock(objects)?;
-
-        if lock_action_res.object_paths.is_empty() {
-            exec_prompt_blocking(self.conn.clone(), &lock_action_res.prompt)?;
-        }
-
-        Ok(())
+    pub fn unlock_all(&'a self, items: &[&Item<'_>]) -> Result<(), Error> {
+        let items: Vec<_> = items.iter().map(|item| &item.inner).collect();
+        zruntime::block_on(self.inner.unlock_all(&items))
     }
 
     /// Get an item by its dbus object path.
     pub fn get_item_by_path(&'a self, item_path: OwnedObjectPath) -> Result<Item<'a>, Error> {
-        Item::new(
-            self.conn.clone(),
-            &self.session,
-            &self.service_proxy,
-            item_path,
-        )
+        Ok(Item::from(zruntime::block_on(
+            self.inner.get_item_by_path(item_path),
+        )?))
     }
 
     /// Get a collection by its dbus object path.
@@ -212,12 +127,9 @@ impl<'a> SecretService<'a> {
         &'a self,
         collection_path: OwnedObjectPath,
     ) -> Result<Collection<'a>, Error> {
-        Collection::new(
-            self.conn.clone(),
-            &self.session,
-            &self.service_proxy,
-            collection_path,
-        )
+        Ok(Collection::from(zruntime::block_on(
+            self.inner.get_collection_by_path(collection_path),
+        )?))
     }
 }
 
@@ -225,11 +137,29 @@ impl<'a> SecretService<'a> {
 mod test {
     use super::*;
     use std::convert::TryFrom;
-    use zbus::zvariant::ObjectPath;
+    use zbus::ObjectPath;
 
     #[test]
     fn should_create_secret_service() {
         SecretService::connect(EncryptionType::Plain).unwrap();
+    }
+
+    #[test]
+    fn should_connect_with_existing_connection() {
+        let connection = zruntime::block_on(zbus::Connection::session()).unwrap();
+        let service =
+            SecretService::connect_with_existing(EncryptionType::Plain, connection).unwrap();
+        assert!(service.get_default_collection().is_ok());
+    }
+
+    #[test]
+    fn unlock_all_reports_a_closed_connection() {
+        let connection = zruntime::block_on(zbus::Connection::session()).unwrap();
+        let service =
+            SecretService::connect_with_existing(EncryptionType::Plain, connection.clone())
+                .unwrap();
+        zruntime::block_on(connection.close()).unwrap();
+        assert!(service.unlock_all(&[]).is_err());
     }
 
     #[test]

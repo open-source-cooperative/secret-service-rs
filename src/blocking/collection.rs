@@ -1,146 +1,75 @@
-use super::item::Item;
-use crate::error::Error;
-use crate::proxy::collection::CollectionProxyBlocking;
-use crate::proxy::service::ServiceProxyBlocking;
-use crate::session::Session;
-use crate::ss::{SS_DBUS_NAME, SS_ITEM_ATTRIBUTES, SS_ITEM_LABEL};
-use crate::util::{LockAction, exec_prompt_blocking, format_secret, lock_or_unlock_blocking};
-
+use crate::{Error, blocking::Item};
 use std::collections::HashMap;
-use zbus::{
-    proxy::CacheProperties,
-    zvariant::{Dict, ObjectPath, OwnedObjectPath, Value},
-};
+use zbus::OwnedObjectPath;
 
 /// Collection struct.
 /// Should always be created from the [`SecretService`](crate::blocking::SecretService) entry point,
 /// whether through a new collection or a collection search
 pub struct Collection<'a> {
-    conn: zbus::blocking::Connection,
-    session: &'a Session,
     /// The dbus object path of the collection.
     pub collection_path: OwnedObjectPath,
-    collection_proxy: CollectionProxyBlocking<'a>,
-    service_proxy: &'a ServiceProxyBlocking<'a>,
+    inner: crate::Collection<'a>,
+}
+
+impl<'a> From<crate::Collection<'a>> for Collection<'a> {
+    fn from(inner: crate::Collection<'a>) -> Self {
+        Self {
+            collection_path: inner.collection_path.clone(),
+            inner,
+        }
+    }
 }
 
 impl<'a> Collection<'a> {
-    pub(crate) fn new(
-        conn: zbus::blocking::Connection,
-        session: &'a Session,
-        service_proxy: &'a ServiceProxyBlocking,
-        collection_path: OwnedObjectPath,
-    ) -> Result<Self, Error> {
-        let collection_proxy = CollectionProxyBlocking::builder(&conn)
-            .destination(SS_DBUS_NAME)?
-            .path(collection_path.clone())?
-            .cache_properties(CacheProperties::No)
-            .build()?;
-        Ok(Collection {
-            conn,
-            session,
-            collection_path,
-            collection_proxy,
-            service_proxy,
-        })
-    }
-
     /// Whether the collection is locked.
     pub fn is_locked(&self) -> Result<bool, Error> {
-        Ok(self.collection_proxy.locked()?)
+        zruntime::block_on(self.inner.is_locked())
     }
 
     /// Return [Error::Locked] if the collection is locked.
     pub fn ensure_unlocked(&self) -> Result<(), Error> {
-        if self.is_locked()? {
-            Err(Error::Locked)
-        } else {
-            Ok(())
-        }
+        zruntime::block_on(self.inner.ensure_unlocked())
     }
 
     /// Unlock the collection.
     pub fn unlock(&self) -> Result<(), Error> {
-        lock_or_unlock_blocking(
-            self.conn.clone(),
-            self.service_proxy,
-            &self.collection_path,
-            LockAction::Unlock,
-        )
+        zruntime::block_on(self.inner.unlock())
     }
 
     /// Lock the collection.
     pub fn lock(&self) -> Result<(), Error> {
-        lock_or_unlock_blocking(
-            self.conn.clone(),
-            self.service_proxy,
-            &self.collection_path,
-            LockAction::Lock,
-        )
+        zruntime::block_on(self.inner.lock())
     }
 
     /// Deletes dbus object, but struct instance still exists (current implementation)
     pub fn delete(&self) -> Result<(), Error> {
-        // ensure_unlocked handles prompt for unlocking if necessary
-        self.ensure_unlocked()?;
-        let prompt_path = self.collection_proxy.delete()?;
-
-        // "/" means no prompt necessary
-        if prompt_path.as_str() != "/" {
-            exec_prompt_blocking(self.conn.clone(), &prompt_path)?;
-        }
-
-        Ok(())
+        zruntime::block_on(self.inner.delete())
     }
 
     /// Get all items in the collection.
     pub fn get_all_items(&'a self) -> Result<Vec<Item<'a>>, Error> {
-        let items = self.collection_proxy.items()?;
-
-        // map array of item paths to Item
-        let res = items
+        Ok(zruntime::block_on(self.inner.get_all_items())?
             .into_iter()
-            .map(|item_path| {
-                Item::new(
-                    self.conn.clone(),
-                    self.session,
-                    self.service_proxy,
-                    item_path.into(),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        Ok(res)
+            .map(Item::from)
+            .collect())
     }
 
     /// Search the collection's items by attributes.
     pub fn search_items(&'a self, attributes: HashMap<&str, &str>) -> Result<Vec<Item<'a>>, Error> {
-        let items = self.collection_proxy.search_items(attributes)?;
-
-        // map array of item paths to Item
-        let res = items
+        Ok(zruntime::block_on(self.inner.search_items(attributes))?
             .into_iter()
-            .map(|item_path| {
-                Item::new(
-                    self.conn.clone(),
-                    self.session,
-                    self.service_proxy,
-                    item_path,
-                )
-            })
-            .collect::<Result<_, _>>()?;
-
-        Ok(res)
+            .map(Item::from)
+            .collect())
     }
 
     /// Get the collection's label.
     pub fn get_label(&self) -> Result<String, Error> {
-        Ok(self.collection_proxy.label()?)
+        zruntime::block_on(self.inner.get_label())
     }
 
     /// Set the collection's label.
     pub fn set_label(&self, new_label: &str) -> Result<(), Error> {
-        Ok(self.collection_proxy.set_label(new_label)?)
+        zruntime::block_on(self.inner.set_label(new_label))
     }
 
     /// Create a new item in the collection, replacing any item with the same attributes if `replace` is true.
@@ -152,42 +81,13 @@ impl<'a> Collection<'a> {
         replace: bool,
         content_type: &str,
     ) -> Result<Item<'a>, Error> {
-        let secret_struct = format_secret(self.session, secret, content_type)?;
-
-        let mut properties: HashMap<&str, Value> = HashMap::new();
-        let attributes: Dict = attributes.into();
-
-        properties.insert(SS_ITEM_LABEL, label.into());
-        properties.insert(SS_ITEM_ATTRIBUTES, attributes.into());
-
-        let created_item = self
-            .collection_proxy
-            .create_item(properties, secret_struct, replace)?;
-
-        // This prompt handling is practically identical to create_collection
-        let item_path: ObjectPath = {
-            // Get path of created object
-            let created_path = created_item.item;
-
-            // Check if that path is "/", if so should execute a prompt
-            if created_path.as_str() == "/" {
-                let prompt_path = created_item.prompt;
-
-                // Exec prompt and parse result
-                let prompt_res = exec_prompt_blocking(self.conn.clone(), &prompt_path)?;
-                prompt_res.try_into()?
-            } else {
-                // if not, just return created path
-                created_path.into()
-            }
-        };
-
-        Item::new(
-            self.conn.clone(),
-            self.session,
-            self.service_proxy,
-            item_path.into(),
-        )
+        Ok(Item::from(zruntime::block_on(self.inner.create_item(
+            label,
+            attributes,
+            secret,
+            replace,
+            content_type,
+        ))?))
     }
 }
 
@@ -206,7 +106,51 @@ mod test {
     fn should_check_if_collection_locked() {
         let ss = SecretService::connect(EncryptionType::Plain).unwrap();
         let collection = ss.get_default_collection().unwrap();
-        let _ = collection.is_locked().unwrap();
+        assert!(!collection.is_locked().unwrap());
+    }
+
+    #[test]
+    fn missing_collection_has_no_lock_state() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.is_locked().is_err());
+    }
+
+    #[test]
+    fn missing_collection_cannot_be_confirmed_unlocked() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.ensure_unlocked().is_err());
+    }
+
+    #[test]
+    fn missing_collection_cannot_be_deleted() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.delete().is_err());
+    }
+
+    #[test]
+    fn missing_collection_cannot_be_renamed() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss
+            .get_collection_by_path(
+                OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
+            )
+            .unwrap();
+        assert!(collection.set_label("test").is_err());
     }
 
     #[test]
@@ -255,7 +199,18 @@ mod test {
     fn should_get_all_items() {
         let ss = SecretService::connect(EncryptionType::Plain).unwrap();
         let collection = ss.get_default_collection().unwrap();
-        collection.get_all_items().unwrap();
+        let item = collection
+            .create_item(
+                "all_items_test",
+                HashMap::new(),
+                b"test",
+                false,
+                "text/plain",
+            )
+            .unwrap();
+        let items = collection.get_all_items().unwrap();
+        assert!(items.iter().any(|found| found.item_path == item.item_path));
+        item.delete().unwrap();
     }
 
     #[test]
@@ -333,5 +288,21 @@ mod test {
             let label_prime = collection_prime.get_label().unwrap();
             assert_eq!(label, label_prime);
         }
+    }
+
+    #[test]
+    fn should_get_collection_label_from_service() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss.get_default_collection().unwrap();
+        let async_service =
+            zruntime::block_on(crate::SecretService::connect(EncryptionType::Plain)).unwrap();
+        let async_collection = zruntime::block_on(
+            async_service.get_collection_by_path(collection.collection_path.clone()),
+        )
+        .unwrap();
+        assert_eq!(
+            collection.get_label().unwrap(),
+            zruntime::block_on(async_collection.get_label()).unwrap()
+        );
     }
 }

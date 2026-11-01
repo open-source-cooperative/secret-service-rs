@@ -1,5 +1,3 @@
-use zbus::zvariant;
-
 /// An error that could occur interacting with the secret service dbus interface.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -10,8 +8,6 @@ pub enum Error {
     Zbus(zbus::Error),
     /// A call into a standard dbus interface failed.
     ZbusFdo(zbus::fdo::Error),
-    /// Serializing or deserializing a dbus message failed.
-    Zvariant(zvariant::Error),
     /// A secret service interface was locked and can't return any
     /// information about its contents.
     Locked,
@@ -33,7 +29,6 @@ impl std::fmt::Display for Error {
             Error::Crypto(err) => write!(f, "Crypto error: {err}"),
             Error::Zbus(err) => write!(f, "zbus error: {err}"),
             Error::ZbusFdo(err) => write!(f, "zbus fdo error: {err}"),
-            Error::Zvariant(err) => write!(f, "zbus serde error: {err}"),
             Error::Locked => f.write_str("SS Error: object locked"),
             Error::NoResult => f.write_str("SS error: result not returned from SS API"),
             Error::Prompt => f.write_str("SS error: prompt dismissed"),
@@ -50,7 +45,6 @@ impl std::error::Error for Error {
         match *self {
             Error::Zbus(ref err) => Some(err),
             Error::ZbusFdo(ref err) => Some(err),
-            Error::Zvariant(ref err) => Some(err),
             _ => None,
         }
     }
@@ -68,8 +62,24 @@ impl From<zbus::fdo::Error> for Error {
     }
 }
 
-impl From<zvariant::Error> for Error {
-    fn from(err: zvariant::Error) -> Error {
-        Error::Zvariant(err)
+#[cfg(test)]
+mod tests {
+    use super::Error;
+
+    #[test]
+    fn zbus_error_exposes_its_source() {
+        let error = Error::Zbus(zbus::Error::Failure("test".into()));
+        assert!(std::error::Error::source(&error).is_some());
+    }
+
+    #[test]
+    fn fdo_error_exposes_its_source() {
+        let error = Error::ZbusFdo(zbus::fdo::Error::Failed("test".into()));
+        assert!(std::error::Error::source(&error).is_some());
+    }
+
+    #[test]
+    fn error_displays_its_message() {
+        assert_eq!(Error::Locked.to_string(), "SS Error: object locked");
     }
 }

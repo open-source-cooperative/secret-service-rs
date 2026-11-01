@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Type, Value};
+use zbus::{OwnedObjectPath, Type, Variant};
 
 use super::SecretStruct;
 
@@ -10,7 +10,7 @@ use super::SecretStruct;
 ///
 /// This will derive CollectionProxy
 ///
-/// Note that `Value` in the method signatures corresponds to `VARIANT` dbus type.
+/// The `Variant` arguments correspond to the D-Bus `VARIANT` type.
 #[zbus::proxy(
     interface = "org.freedesktop.Secret.Collection",
     default_service = "org.freedesktop.Secret.Collection"
@@ -23,13 +23,13 @@ pub trait Collection {
 
     fn create_item(
         &self,
-        properties: HashMap<&str, Value<'_>>,
+        properties: HashMap<&str, Variant<'_>>,
         secret: SecretStruct,
         replace: bool,
     ) -> zbus::Result<CreateItemResult>;
 
     #[zbus(property)]
-    fn items(&self) -> zbus::fdo::Result<Vec<ObjectPath<'_>>>;
+    fn items(&self) -> zbus::fdo::Result<Vec<OwnedObjectPath>>;
 
     #[zbus(property)]
     fn label(&self) -> zbus::fdo::Result<String>;

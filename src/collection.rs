@@ -7,10 +7,7 @@ use crate::ss::{SS_DBUS_NAME, SS_ITEM_ATTRIBUTES, SS_ITEM_LABEL};
 use crate::util::{LockAction, exec_prompt, format_secret, lock_or_unlock};
 
 use std::collections::HashMap;
-use zbus::{
-    proxy::CacheProperties,
-    zvariant::{Dict, ObjectPath, OwnedObjectPath, Value},
-};
+use zbus::{Dict, ObjectPath, OwnedObjectPath, Variant, proxy::CacheProperties};
 
 /// Collection struct.
 /// Should always be created from the [`SecretService`](crate::SecretService) entry point,
@@ -32,8 +29,8 @@ impl<'a> Collection<'a> {
         collection_path: OwnedObjectPath,
     ) -> Result<Collection<'a>, Error> {
         let collection_proxy = CollectionProxy::builder(&conn)
-            .destination(SS_DBUS_NAME)?
-            .path(collection_path.clone())?
+            .destination(SS_DBUS_NAME)
+            .path(collection_path.clone())
             .cache_properties(CacheProperties::No)
             .build()
             .await?;
@@ -101,13 +98,12 @@ impl<'a> Collection<'a> {
     pub async fn get_all_items(&self) -> Result<Vec<Item<'_>>, Error> {
         let items = self.collection_proxy.items().await?;
 
-        // map array of item paths to Item
         futures_util::future::join_all(items.into_iter().map(|item_path| {
             Item::new(
                 self.conn.clone(),
                 self.session,
                 self.service_proxy,
-                item_path.into(),
+                item_path,
             )
         }))
         .await
@@ -157,7 +153,7 @@ impl<'a> Collection<'a> {
     ) -> Result<Item<'_>, Error> {
         let secret_struct = format_secret(self.session, secret, content_type)?;
 
-        let mut properties: HashMap<&str, Value> = HashMap::new();
+        let mut properties: HashMap<&str, Variant> = HashMap::new();
         let attributes: Dict = attributes.into();
 
         properties.insert(SS_ITEM_LABEL, label.into());
@@ -260,7 +256,19 @@ mod test {
     async fn should_get_all_items() {
         let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
-        collection.get_all_items().await.unwrap();
+        let item = collection
+            .create_item(
+                "all_items_test",
+                HashMap::new(),
+                b"test",
+                false,
+                "text/plain",
+            )
+            .await
+            .unwrap();
+        let items = collection.get_all_items().await.unwrap();
+        assert!(items.iter().any(|found| found.item_path == item.item_path));
+        item.delete().await.unwrap();
     }
 
     #[tokio::test]

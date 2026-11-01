@@ -110,10 +110,9 @@
 //! Specifics in SecretService API Draft Proposal:
 //! <https://standards.freedesktop.org/secret-service/>
 //!
-//! ### Async
+//! ### Blocking
 //!
-//! This crate, following `zbus`, is async by default. If you want a synchronous interface
-//! that blocks, see the [blocking] module instead.
+//! The [blocking] module provides synchronous wrappers for callers outside an async runtime.
 //
 // Util currently has interfaces (dbus method namespace) to make it easier to call methods.
 // Util contains function to execute prompts (used in many collection and item methods, like
@@ -142,7 +141,7 @@ use crate::ss::SS_COLLECTION_LABEL;
 use crate::util::exec_prompt;
 use futures_util::TryFutureExt;
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath, Value};
+use zbus::{ObjectPath, OwnedObjectPath, Variant};
 
 /// Secret Service Struct.
 ///
@@ -208,7 +207,7 @@ impl<'a> SecretService<'a> {
                 self.conn.clone(),
                 &self.session,
                 &self.service_proxy,
-                object_path.into(),
+                object_path,
             )
         }))
         .await
@@ -269,7 +268,7 @@ impl<'a> SecretService<'a> {
         label: &str,
         alias: &str,
     ) -> Result<Collection<'_>, Error> {
-        let mut properties: HashMap<&str, Value> = HashMap::new();
+        let mut properties: HashMap<&str, Variant> = HashMap::new();
         properties.insert(SS_COLLECTION_LABEL, label.into());
 
         let created_collection = self
@@ -376,7 +375,7 @@ impl<'a> SecretService<'a> {
 mod test {
     use super::*;
     use std::convert::TryFrom;
-    use zbus::zvariant::ObjectPath;
+    use zbus::ObjectPath;
 
     #[tokio::test]
     async fn should_create_secret_service() {

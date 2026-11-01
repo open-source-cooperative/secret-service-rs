@@ -1,163 +1,99 @@
-use crate::error::Error;
-use crate::proxy::item::ItemProxyBlocking;
-use crate::proxy::service::ServiceProxyBlocking;
-use crate::session::decrypt;
-use crate::session::{AesIv, Session};
-use crate::ss::SS_DBUS_NAME;
-use crate::util::{LockAction, exec_prompt_blocking, format_secret, lock_or_unlock_blocking};
-
+use crate::Error;
 use std::collections::HashMap;
-use zbus::{proxy::CacheProperties, zvariant::OwnedObjectPath};
+use zbus::OwnedObjectPath;
 
 /// A Secret Service item.
 pub struct Item<'a> {
-    conn: zbus::blocking::Connection,
-    session: &'a Session,
     /// The dbus object path of the item.
     pub item_path: OwnedObjectPath,
-    item_proxy: ItemProxyBlocking<'a>,
-    service_proxy: &'a ServiceProxyBlocking<'a>,
+    pub(crate) inner: crate::Item<'a>,
 }
 
-impl<'a> Item<'a> {
-    pub(crate) fn new(
-        conn: zbus::blocking::Connection,
-        session: &'a Session,
-        service_proxy: &'a ServiceProxyBlocking<'a>,
-        item_path: OwnedObjectPath,
-    ) -> Result<Self, Error> {
-        let item_proxy = ItemProxyBlocking::builder(&conn)
-            .destination(SS_DBUS_NAME)?
-            .path(item_path.clone())?
-            .cache_properties(CacheProperties::No)
-            .build()?;
-        Ok(Item {
-            conn,
-            session,
-            item_path,
-            item_proxy,
-            service_proxy,
-        })
+impl<'a> From<crate::Item<'a>> for Item<'a> {
+    fn from(inner: crate::Item<'a>) -> Self {
+        Self {
+            item_path: inner.item_path.clone(),
+            inner,
+        }
     }
+}
 
+impl Item<'_> {
     /// Whether the item is locked.
     pub fn is_locked(&self) -> Result<bool, Error> {
-        Ok(self.item_proxy.locked()?)
+        zruntime::block_on(self.inner.is_locked())
     }
 
     /// Return [Error::Locked] if the item is locked.
     pub fn ensure_unlocked(&self) -> Result<(), Error> {
-        if self.is_locked()? {
-            Err(Error::Locked)
-        } else {
-            Ok(())
-        }
+        zruntime::block_on(self.inner.ensure_unlocked())
     }
 
     /// Unlock the item.
     pub fn unlock(&self) -> Result<(), Error> {
-        lock_or_unlock_blocking(
-            self.conn.clone(),
-            self.service_proxy,
-            &self.item_path,
-            LockAction::Unlock,
-        )
+        zruntime::block_on(self.inner.unlock())
     }
 
     /// Lock the item.
     pub fn lock(&self) -> Result<(), Error> {
-        lock_or_unlock_blocking(
-            self.conn.clone(),
-            self.service_proxy,
-            &self.item_path,
-            LockAction::Lock,
-        )
+        zruntime::block_on(self.inner.lock())
     }
 
     /// Get the item's attributes.
     pub fn get_attributes(&self) -> Result<HashMap<String, String>, Error> {
-        Ok(self.item_proxy.attributes()?)
+        zruntime::block_on(self.inner.get_attributes())
     }
 
     /// Replace the item's attributes.
     pub fn set_attributes(&self, attributes: HashMap<&str, &str>) -> Result<(), Error> {
-        Ok(self.item_proxy.set_attributes(attributes)?)
+        zruntime::block_on(self.inner.set_attributes(attributes))
     }
 
     /// Get the item's label.
     pub fn get_label(&self) -> Result<String, Error> {
-        Ok(self.item_proxy.label()?)
+        zruntime::block_on(self.inner.get_label())
     }
 
     /// Set the item's label.
     pub fn set_label(&self, new_label: &str) -> Result<(), Error> {
-        Ok(self.item_proxy.set_label(new_label)?)
+        zruntime::block_on(self.inner.set_label(new_label))
     }
 
     /// Deletes dbus object, but struct instance still exists (current implementation)
     pub fn delete(&self) -> Result<(), Error> {
-        // ensure_unlocked handles prompt for unlocking if necessary
-        self.ensure_unlocked()?;
-        let prompt_path = self.item_proxy.delete()?;
-
-        // "/" means no prompt necessary
-        if prompt_path.as_str() != "/" {
-            exec_prompt_blocking(self.conn.clone(), &prompt_path)?;
-        }
-
-        Ok(())
+        zruntime::block_on(self.inner.delete())
     }
 
     /// Get the item's secret, decrypted with the session key when one
     /// is in use.
     pub fn get_secret(&self) -> Result<Vec<u8>, Error> {
-        let secret_struct = self.item_proxy.get_secret(&self.session.object_path)?;
-        let secret = secret_struct.value;
-
-        if let Some(session_key) = self.session.get_aes_key() {
-            // get "param" (aes_iv) field out of secret struct
-            let aes_iv: AesIv = secret_struct
-                .parameters
-                .try_into()
-                .map_err(|_| Error::Crypto("secret has an invalid initialization vector"))?;
-
-            // decrypt
-            let decrypted_secret = decrypt(&secret, session_key, &aes_iv)?;
-
-            Ok(decrypted_secret)
-        } else {
-            Ok(secret)
-        }
+        zruntime::block_on(self.inner.get_secret())
     }
 
     /// Get the MIME type of the item's secret.
     pub fn get_secret_content_type(&self) -> Result<String, Error> {
-        let secret_struct = self.item_proxy.get_secret(&self.session.object_path)?;
-        let content_type = secret_struct.content_type;
-
-        Ok(content_type)
+        zruntime::block_on(self.inner.get_secret_content_type())
     }
 
     /// Replace the item's secret and its MIME type.
     pub fn set_secret(&self, secret: &[u8], content_type: &str) -> Result<(), Error> {
-        let secret_struct = format_secret(self.session, secret, content_type)?;
-        Ok(self.item_proxy.set_secret(secret_struct)?)
+        zruntime::block_on(self.inner.set_secret(secret, content_type))
     }
 
     /// Get the time the item was created, in seconds since the Unix epoch.
     pub fn get_created(&self) -> Result<u64, Error> {
-        Ok(self.item_proxy.created()?)
+        zruntime::block_on(self.inner.get_created())
     }
 
     /// Get the time the item was last modified, in seconds since the Unix epoch.
     pub fn get_modified(&self) -> Result<u64, Error> {
-        Ok(self.item_proxy.modified()?)
+        zruntime::block_on(self.inner.get_modified())
     }
 }
 
 impl Eq for Item<'_> {}
 impl PartialEq for Item<'_> {
-    fn eq(&self, other: &Item) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.item_path == other.item_path
     }
 }
@@ -191,8 +127,26 @@ mod test {
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
-        item.is_locked().unwrap();
+        assert!(!item.is_locked().unwrap());
         item.delete().unwrap();
+    }
+
+    #[test]
+    fn deleted_item_does_not_report_a_lock_state() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss.get_default_collection().unwrap();
+        let item = create_test_default_item(&collection);
+        item.delete().unwrap();
+        assert!(item.is_locked().is_err());
+    }
+
+    #[test]
+    fn deleted_item_cannot_be_confirmed_unlocked() {
+        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let collection = ss.get_default_collection().unwrap();
+        let item = create_test_default_item(&collection);
+        item.delete().unwrap();
+        assert!(item.ensure_unlocked().is_err());
     }
 
     #[test]
@@ -313,8 +267,8 @@ mod test {
         let item = create_test_default_item(&collection);
 
         item.set_label("Tester").unwrap();
-        let _created = item.get_created().unwrap();
-        let _modified = item.get_modified().unwrap();
+        assert!(item.get_created().unwrap() > 1);
+        assert!(item.get_modified().unwrap() > 1);
         item.delete().unwrap();
     }
 

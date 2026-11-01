@@ -11,7 +11,7 @@
 //      This encoding uses the aes_key from the associated Session.
 
 use crate::Error;
-use crate::proxy::service::{OpenSessionResult, ServiceProxy, ServiceProxyBlocking};
+use crate::proxy::service::{OpenSessionResult, ServiceProxy};
 use crate::ss::{ALGORITHM_DH, ALGORITHM_PLAIN};
 
 use hybrid_array::{Array, typenum::U16};
@@ -21,7 +21,7 @@ use num::{
     integer::Integer,
     traits::{One, Zero},
 };
-use zbus::zvariant::OwnedObjectPath;
+use zbus::OwnedObjectPath;
 
 use std::ops::{Mul, Rem, Shr};
 use std::sync::LazyLock;
@@ -159,31 +159,6 @@ impl Session {
         })
     }
 
-    pub fn new_blocking(
-        service_proxy: &ServiceProxyBlocking,
-        encryption: EncryptionType,
-    ) -> Result<Self, Error> {
-        match encryption {
-            EncryptionType::Plain => {
-                let session = service_proxy.open_session(ALGORITHM_PLAIN, "".into())?;
-                let session_path = session.result;
-
-                Ok(Session {
-                    object_path: session_path,
-                    aes_key: None,
-                })
-            }
-            EncryptionType::Dh => {
-                let keypair = Keypair::generate();
-
-                let session = service_proxy
-                    .open_session(ALGORITHM_DH, keypair.public.to_bytes_be().into())?;
-
-                Self::encrypted_session(&keypair, session)
-            }
-        }
-    }
-
     pub async fn new(
         service_proxy: &ServiceProxy<'_>,
         encryption: EncryptionType,
@@ -298,27 +273,4 @@ pub fn encrypt(data: &[u8], key: &AesKey, iv: &AesIv) -> Vec<u8> {
 #[cfg(all(not(feature = "crypto-rust"), not(feature = "crypto-openssl")))]
 pub fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &AesIv) -> Result<Vec<u8>, Error> {
     feature_needed!()
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    // There is no async test because this tests that an encryption session can be made, nothing more.
-
-    #[test]
-    fn should_create_plain_session() {
-        let conn = zbus::blocking::Connection::session().unwrap();
-        let service_proxy = ServiceProxyBlocking::new(&conn).unwrap();
-        let session = Session::new_blocking(&service_proxy, EncryptionType::Plain).unwrap();
-        assert!(session.get_aes_key().is_none());
-    }
-
-    #[test]
-    fn should_create_encrypted_session() {
-        let conn = zbus::blocking::Connection::session().unwrap();
-        let service_proxy = ServiceProxyBlocking::new(&conn).unwrap();
-        let session = Session::new_blocking(&service_proxy, EncryptionType::Dh).unwrap();
-        assert!(session.get_aes_key().is_some());
-    }
 }

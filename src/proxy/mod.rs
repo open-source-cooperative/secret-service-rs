@@ -4,7 +4,7 @@ pub mod prompt;
 pub mod service;
 
 use serde::{Deserialize, Serialize};
-use zbus::zvariant::{OwnedObjectPath, Type};
+use zbus::{OwnedObjectPath, Type};
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct SecretStruct {
