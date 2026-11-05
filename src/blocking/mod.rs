@@ -141,14 +141,14 @@ mod test {
 
     #[test]
     fn should_create_secret_service() {
-        SecretService::connect(EncryptionType::Plain).unwrap();
+        SecretService::connect(EncryptionType::Dh).unwrap();
     }
 
     #[test]
     fn should_connect_with_existing_connection() {
         let connection = zruntime::block_on(zbus::Connection::session()).unwrap();
         let service =
-            SecretService::connect_with_existing(EncryptionType::Plain, connection).unwrap();
+            SecretService::connect_with_existing(EncryptionType::Dh, connection).unwrap();
         assert!(service.get_default_collection().is_ok());
     }
 
@@ -156,7 +156,7 @@ mod test {
     fn unlock_all_reports_a_closed_connection() {
         let connection = zruntime::block_on(zbus::Connection::session()).unwrap();
         let service =
-            SecretService::connect_with_existing(EncryptionType::Plain, connection.clone())
+            SecretService::connect_with_existing(EncryptionType::Dh, connection.clone())
                 .unwrap();
         zruntime::block_on(connection.close()).unwrap();
         assert!(service.unlock_all(&[]).is_err());
@@ -166,20 +166,20 @@ mod test {
     fn should_get_all_collections() {
         // Assumes that there will always be a default
         // collection
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collections = ss.get_all_collections().unwrap();
         assert!(!collections.is_empty(), "no collections found");
     }
 
     #[test]
     fn should_get_collection_by_alias() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         ss.get_collection_by_alias("session").unwrap();
     }
 
     #[test]
     fn should_return_error_if_collection_doesnt_exist() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
 
         match ss.get_collection_by_alias("definitely_definitely_does_not_exist") {
             Err(Error::NoResult) => {}
@@ -189,25 +189,36 @@ mod test {
 
     #[test]
     fn should_get_default_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         ss.get_default_collection().unwrap();
     }
 
     #[test]
     fn should_get_any_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let _ = ss.get_any_collection().unwrap();
     }
 
-    #[test_with::no_env(GITHUB_ACTIONS)]
+    #[test_with::no_env(GITHUB_ACTIONS)]    // does prompting, so can't use in CI
     #[test]
-    fn should_create_and_delete_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
-        let test_collection = ss.create_collection("Test", "").unwrap();
+    fn should_succeed_at_all_collection_operations() {
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
+        let test_collection = ss.create_collection("BlockingTestCollection", "").unwrap();
         assert_eq!(
             ObjectPath::from(test_collection.collection_path.clone()),
-            ObjectPath::try_from("/org/freedesktop/secrets/collection/Test").unwrap()
+            ObjectPath::try_from("/org/freedesktop/secrets/collection/BlockingTestCollection").unwrap()
         );
+        let mut label = test_collection.get_label().unwrap();
+        assert_eq!(label, "BlockingTestCollection");
+        test_collection.set_label("BlockingTestCollection renamed").unwrap();
+        label = test_collection.get_label().unwrap();
+        assert_eq!(label, "BlockingTestCollection renamed");
+        assert!(!test_collection.is_locked().unwrap());
+        test_collection.set_label("BlockingTestCollection").unwrap();
+        test_collection.lock().unwrap();
+        assert!(test_collection.is_locked().unwrap());
+        test_collection.unlock().unwrap();
+        assert!(!test_collection.is_locked().unwrap());
         test_collection.delete().unwrap();
     }
 

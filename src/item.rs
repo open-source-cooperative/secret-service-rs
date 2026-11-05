@@ -185,7 +185,7 @@ mod test {
 
     #[tokio::test]
     async fn should_create_and_delete_item() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -198,7 +198,7 @@ mod test {
 
     #[tokio::test]
     async fn should_check_if_item_locked() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -206,11 +206,13 @@ mod test {
         item.delete().await.unwrap();
     }
 
+    #[test_with::no_env(GITHUB_ACTIONS)]    // does prompting, so can't use in CI
     #[tokio::test]
-    #[ignore]
     async fn should_lock_and_unlock() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
-        let collection = ss.get_default_collection().await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
+        // we have to make a collection to create the item to be locked,
+        // because locking the item really locks the collection!
+        let collection = ss.create_collection("AsyncLockTest", "").await.unwrap();
         let item = create_test_default_item(&collection).await;
 
         let locked = item.is_locked().await.unwrap();
@@ -228,11 +230,12 @@ mod test {
             assert!(!item.is_locked().await.unwrap());
         }
         item.delete().await.unwrap();
+        collection.delete().await.unwrap()
     }
 
     #[tokio::test]
     async fn should_get_and_set_item_label() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -245,7 +248,7 @@ mod test {
 
     #[tokio::test]
     async fn should_get_item_by_path() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -265,7 +268,7 @@ mod test {
 
     #[tokio::test]
     async fn should_create_with_item_attributes() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = collection
             .create_item(
@@ -294,7 +297,7 @@ mod test {
 
     #[tokio::test]
     async fn should_get_and_set_item_attributes() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -320,7 +323,7 @@ mod test {
 
     #[tokio::test]
     async fn should_get_modified_created_props() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -332,7 +335,7 @@ mod test {
 
     #[tokio::test]
     async fn should_create_and_get_secret() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -354,7 +357,7 @@ mod test {
 
     #[tokio::test]
     async fn should_get_secret_content_type() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 
@@ -365,7 +368,7 @@ mod test {
 
     #[tokio::test]
     async fn should_set_secret() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = create_test_default_item(&collection).await;
 

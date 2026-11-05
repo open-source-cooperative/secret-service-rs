@@ -4,7 +4,7 @@ use std::{collections::HashMap, str};
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     // Initialize secret service
-    let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+    let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
 
     // navigate to default collection
     let collection = ss.get_default_collection().await.unwrap();

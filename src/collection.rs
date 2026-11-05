@@ -198,63 +198,21 @@ mod test {
 
     #[tokio::test]
     async fn should_create_collection_struct() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let _ = ss.get_default_collection().await.unwrap();
         // tested under SecretService struct
     }
 
     #[tokio::test]
     async fn should_check_if_collection_locked() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let _ = collection.is_locked().await.unwrap();
     }
 
     #[tokio::test]
-    #[ignore] // should unignore this test this manually, otherwise will constantly prompt during tests.
-    async fn should_lock_and_unlock() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
-        let collection = ss.get_default_collection().await.unwrap();
-        let locked = collection.is_locked().await.unwrap();
-        if locked {
-            collection.unlock().await.unwrap();
-            collection.ensure_unlocked().await.unwrap();
-            assert!(!collection.is_locked().await.unwrap());
-            collection.lock().await.unwrap();
-            assert!(collection.is_locked().await.unwrap());
-        } else {
-            collection.lock().await.unwrap();
-            assert!(collection.is_locked().await.unwrap());
-            collection.unlock().await.unwrap();
-            collection.ensure_unlocked().await.unwrap();
-            assert!(!collection.is_locked().await.unwrap());
-        }
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn should_delete_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
-        let collections = ss.get_all_collections().await.unwrap();
-        let count_before = collections.len();
-        for collection in collections {
-            let collection_path = &*collection.collection_path;
-            if collection_path.contains("Test") {
-                collection.unlock().await.unwrap();
-                collection.delete().await.unwrap();
-            }
-        }
-        //double check after
-        let collections = ss.get_all_collections().await.unwrap();
-        assert!(
-            collections.len() < count_before,
-            "collections before delete {count_before}"
-        );
-    }
-
-    #[tokio::test]
     async fn should_get_all_items() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let item = collection
             .create_item(
@@ -273,7 +231,7 @@ mod test {
 
     #[tokio::test]
     async fn should_search_items() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
 
         // Create an item
@@ -309,31 +267,8 @@ mod test {
     }
 
     #[tokio::test]
-    #[ignore]
-    async fn should_get_and_set_collection_label() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
-        let collection = ss.get_default_collection().await.unwrap();
-        let label = collection.get_label().await.unwrap();
-        assert_eq!(label, "Login");
-
-        // Set label to test and check
-        collection.unlock().await.unwrap();
-        collection.set_label("Test").await.unwrap();
-        let label = collection.get_label().await.unwrap();
-        assert_eq!(label, "Test");
-
-        // Reset label to original and test
-        collection.unlock().await.unwrap();
-        collection.set_label("Login").await.unwrap();
-        let label = collection.get_label().await.unwrap();
-        assert_eq!(label, "Login");
-
-        collection.lock().await.unwrap();
-    }
-
-    #[tokio::test]
     async fn should_get_collection_by_path() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
         let label = collection.get_label().await.unwrap();
 
