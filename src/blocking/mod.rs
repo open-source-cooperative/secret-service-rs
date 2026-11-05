@@ -147,8 +147,7 @@ mod test {
     #[test]
     fn should_connect_with_existing_connection() {
         let connection = zruntime::block_on(zbus::Connection::session()).unwrap();
-        let service =
-            SecretService::connect_with_existing(EncryptionType::Dh, connection).unwrap();
+        let service = SecretService::connect_with_existing(EncryptionType::Dh, connection).unwrap();
         assert!(service.get_default_collection().is_ok());
     }
 
@@ -156,8 +155,7 @@ mod test {
     fn unlock_all_reports_a_closed_connection() {
         let connection = zruntime::block_on(zbus::Connection::session()).unwrap();
         let service =
-            SecretService::connect_with_existing(EncryptionType::Dh, connection.clone())
-                .unwrap();
+            SecretService::connect_with_existing(EncryptionType::Dh, connection.clone()).unwrap();
         zruntime::block_on(connection.close()).unwrap();
         assert!(service.unlock_all(&[]).is_err());
     }
@@ -199,18 +197,21 @@ mod test {
         let _ = ss.get_any_collection().unwrap();
     }
 
-    #[test_with::no_env(GITHUB_ACTIONS)]    // does prompting, so can't use in CI
+    #[test_with::no_env(GITHUB_ACTIONS)] // does prompting, so can't use in CI
     #[test]
     fn should_succeed_at_all_collection_operations() {
         let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let test_collection = ss.create_collection("BlockingTestCollection", "").unwrap();
         assert_eq!(
             ObjectPath::from(test_collection.collection_path.clone()),
-            ObjectPath::try_from("/org/freedesktop/secrets/collection/BlockingTestCollection").unwrap()
+            ObjectPath::try_from("/org/freedesktop/secrets/collection/BlockingTestCollection")
+                .unwrap()
         );
         let mut label = test_collection.get_label().unwrap();
         assert_eq!(label, "BlockingTestCollection");
-        test_collection.set_label("BlockingTestCollection renamed").unwrap();
+        test_collection
+            .set_label("BlockingTestCollection renamed")
+            .unwrap();
         label = test_collection.get_label().unwrap();
         assert_eq!(label, "BlockingTestCollection renamed");
         assert!(!test_collection.is_locked().unwrap());

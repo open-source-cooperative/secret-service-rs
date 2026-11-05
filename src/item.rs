@@ -206,7 +206,7 @@ mod test {
         item.delete().await.unwrap();
     }
 
-    #[test_with::no_env(GITHUB_ACTIONS)]    // does prompting, so can't use in CI
+    #[test_with::no_env(GITHUB_ACTIONS)] // does prompting, so can't use in CI
     #[tokio::test]
     async fn should_lock_and_unlock() {
         let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();

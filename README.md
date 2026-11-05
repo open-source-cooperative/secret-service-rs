@@ -6,107 +6,56 @@
 [![crates.io downloads](https://img.shields.io/crates/d/secret-service.svg)](https://crates.io/crates/secret-service)
 ![CI](https://github.com/hwchen/secret-service-rs/workflows/CI/badge.svg) [![codecov](https://codecov.io/gh/open-source-cooperative/secret-service-rs/graph/badge.svg)](https://codecov.io/gh/open-source-cooperative/secret-service-rs)
 
-A rust library for interacting with the FreeDesktop Secret Service API through DBus.
+A Rust library for interacting with the FreeDesktop Secret Service API through the DBus.
 
 ### Basic Usage
 
-`secret-service` is implemented in pure Rust by default, so it doesn't require any system libraries such as
-`libdbus-1-dev` or `libdbus-1-3` on Ubuntu.
-
-**In Cargo.toml:**
-
-When adding the crate, you must select a feature representing your selected cryptography backend (either `crypto-rust`
-or `crypto-openssl`). For example:
+When specifying this crate as a dependency, you must select a feature representing your selected cryptography backend (either `crypto-rust` or `crypto-openssl`). For example:
 
 ```toml
 [dependencies]
 secret-service = { version = "6", features = ["crypto-rust"] }
 ```
 
-If your cargo dependency tree does not already specify the asynchronous runtime to be used by the `zbus` crate, you must
-select a feature corresponding to your selected runtime (either `rt-tokio` or `rt-async-io`). For example:
+Using OpenSSL cryptography requires the OpenSSL development libraries be installed on your build system. If they are not, you can activate the `bundled` feature of the `openssl` crate in your cargo dependencies to statically link OpenSSL cryptography into your application.
 
-```toml
-[dependencies]
-secret-service = { version = "6", features = ["crypto-rust", "rt-tokio"] }
-```
+This crate supports both blocking and async APIs for accessing the Secret Service. The funtionality provided by both APIs is the same, and includes:
 
-For convenience, the following four combined feature flags are available that select both runtime and cryptography:
-
-- `rt-async-io-crypto-rust`: Async I/O runtime with pure rust cryptography.
-- `rt-async-io-crypto-openssl`: Async I/O runtime with OpenSSL cryptography.
-- `rt-tokio-crypto-rust`: Tokio runtime and pure Rust cryptography.
-- `rt-tokio-crypto-openssl`: Tokio runtime and OpenSSL cryptography.
-
-Note that using OpenSSL cryptography requires the OpenSSL development libraries be installed on your build system. If
-they are not, you can activate the `bundled` feature of the `openssl` crate in your cargo dependencies to statically
-link OpenSSL cryptography into your application.
-
-**In source code:**
-
-This example is an application built with the Tokio runtime.
-
-```rust
-use secret_service::SecretService;
-use secret_service::EncryptionType;
-use std::{collections::HashMap, error::Error};
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    // initialize secret service (dbus connection and encryption session)
-    let ss = SecretService::connect(EncryptionType::Dh).await?;
-
-    // get default collection
-    let collection = ss.get_default_collection().await?;
-
-    // create new item
-    collection.create_item(
-        "test_label", // label
-        HashMap::from([("test", "test_value")]), // properties
-        b"test_secret", // secret
-        false, // replace item with same attributes
-        "text/plain" // secret content type
-    ).await?;
-
-    // search items by properties
-    let search_items = ss.search_items(
-        HashMap::from([("test", "test_value")])
-    ).await?;
-
-    let item = search_items.unlocked.first().ok_or("Not found!")?;
-
-    // retrieve secret from item
-    let secret = item.get_secret().await?;
-    assert_eq!(secret, b"test_secret");
-
-    // delete item (deletes the dbus object, not the struct instance)
-    item.delete().await?;
-    Ok(())
-}
-```
-
-### Functionality
-
-- SecretService: initialize dbus or use existing connection, create plain/encrypted session.
+- SecretService: initialize dbus or use existing connection, create plain or encrypted session (the use of encryption is highly recommended).
 - Collections: create, delete, search, get-by-path.
 - Items: create, delete, search, get-by-path, get/set secret.
 
-### Migrating from 5
+The crate comes with two example programs, named `async` and `blocking`, that demonstrate how to use these APIs.
 
-Version 6 uses `zbus` 6 and requires Rust 1.89. `blocking::SecretService::connect_with_existing` now accepts a
-`zbus::Connection`, since `zbus::blocking::Connection` no longer exists.
+### Advanced Usage
+
+Because this crate is built on top of the [`zbus`](https://crates.io/crates/zbus) crate, it supports two additional features, `rt-default` and `rt-tokio`, which map to the `default-rt` and `tokio` features, respectively, of the `zbus` crate. These features need only be used if your application has specialized async runtime requirements.
+
+- This crate’s `rt-default` feature passes the `default-rt` feature to this crate’s `zbus` dependency. Note that `rt-default` is a _default_ feature of this crate, so if you don’t want `zbus` to be built with the `default-rt` feature then you must suppress the default features of this crate in your dependencies.
+- This crate’s `rt-tokio` feature passes the `tokio` feature to this crate’s `zbus` dependency. This is _not_ a default feature of this crate, and its not even required if your application is built using the `tokio` runtime. You only need this feature if you use the blocking API of this crate and you want to make sure blocking calls use `tokio` executor rather than the `zbus` default executor.
+
+The `rt-default` and `rt-tokio` features of this crate are _not_ mutually exclusive, just as their underlying features are not mutually exclusive in the `zbus` crate. See the [`zbus` docs](https://docs.rs/zbus/latest/zbus/) for more information about these features.
+
+Note: This crate always specifies the `proxy` feature (and no other default features) in its `zbus` dependency; there is no way to suppress this.
+
+### Versioning
+
+Since this crate is feature-complete, new major versions are not expected. However, because this crate is built on top of the [`zbus`](https://crates.io/crates/zbus) crate, and that crate is under active development, a new major version of this crate is typically released whenever a new major version of the `zbus` is released. When that happens, the major version number of this crate is matched to the major version number of the `zbus` crate it’s based on.
+
+### Migration from Version 5
+
+Version 6 of this crate uses `zbus` version 6 and requires Rust 1.89.
+
+Because there have been big changes in the `zbus` feature set going from version 5 to version 6, this crate has made similar changes. If you were using any of the the `rt-async-io` features in your version 5 code, they are no longer needed, just specify your encryption feature and you’re good to go. If you were using any of the `rt-tokio` features in your version 5 code, and you don’t use the blocking API, then you can just drop the runtime feature completely and specify your encryption. If you want to use the blocking API and be sure it’s running on your existing `tokio` executor, then specify the `rt-tokio` feature to this crate.
+
+The `blocking::SecretService::connect_with_existing` call now accepts a standard
+`zbus::Connection` because the `zbus::blocking::Connection` type has gone away in version 6.
 
 ### Changelog
 
 See [the list of GitHub releases and their release notes](https://github.com/hwchen/secret-service-rs/releases).
 
-### Versioning
-
-This library is feature complete and has stabilized its API for the most part. However, as this crate is almost soley
-reliable on the `zbus` crate, we try and match major version releases with theirs to handle breaking changes and move
-with the wider `zbus` ecosystem.
-
-## License
+### License
 
 Licensed under either of
 
@@ -117,5 +66,4 @@ at your option.
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as
-defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

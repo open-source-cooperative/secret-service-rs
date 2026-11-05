@@ -23,6 +23,6 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           toolchain: stable
-      - run: cargo doc --no-deps --features rt-tokio-crypto-rust
+      - run: cargo doc --no-deps --features crypto-rust
         env:
           RUSTDOCFLAGS: -D warnings -D missing_docs

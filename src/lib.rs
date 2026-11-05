@@ -425,17 +425,27 @@ mod test {
     #[tokio::test]
     async fn should_succeed_at_all_collection_operations() {
         let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
-        let test_collection = ss.create_collection("AsyncTestCollection", "").await.unwrap();
+        let test_collection = ss
+            .create_collection("AsyncTestCollection", "")
+            .await
+            .unwrap();
         assert_eq!(
             ObjectPath::from(test_collection.collection_path.clone()),
-            ObjectPath::try_from("/org/freedesktop/secrets/collection/AsyncTestCollection").unwrap()
+            ObjectPath::try_from("/org/freedesktop/secrets/collection/AsyncTestCollection")
+                .unwrap()
         );
         let mut label = test_collection.get_label().await.unwrap();
         assert_eq!(label, "AsyncTestCollection");
-        test_collection.set_label("AsyncTestCollection renamed").await.unwrap();
+        test_collection
+            .set_label("AsyncTestCollection renamed")
+            .await
+            .unwrap();
         label = test_collection.get_label().await.unwrap();
         assert_eq!(label, "AsyncTestCollection renamed");
-        test_collection.set_label("AsyncTestCollection").await.unwrap();
+        test_collection
+            .set_label("AsyncTestCollection")
+            .await
+            .unwrap();
         assert!(!test_collection.is_locked().await.unwrap());
         test_collection.lock().await.unwrap();
         assert!(test_collection.is_locked().await.unwrap());
@@ -484,7 +494,7 @@ mod test {
     }
 
     #[tokio::test]
-    #[ignore]   // use this only have left over test collections to delete
+    #[ignore] // use this only have left over test collections to delete
     async fn zz_delete_test_collections() {
         let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collections = ss.get_all_collections().await.unwrap();

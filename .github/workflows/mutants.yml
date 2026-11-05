@@ -35,6 +35,6 @@ jobs:
         run: git diff "origin/${BASE_REF}...HEAD" > pr.diff
       # GNOME Keyring does not expose object lock transitions without an interactive prompt.
       - run: |
-          cargo mutants --in-diff pr.diff --features rt-tokio-crypto-rust \
+          cargo mutants --in-diff pr.diff --features crypto-rust \
             --exclude-re 'src/blocking/(collection|item)\.rs:.*::(lock|unlock) ->' \
             -- -- --test-threads=1

@@ -149,7 +149,7 @@ mod test {
         assert!(item.ensure_unlocked().is_err());
     }
 
-    #[test_with::no_env(GITHUB_ACTIONS)]    // does prompting, so can't use in CI
+    #[test_with::no_env(GITHUB_ACTIONS)] // does prompting, so can't use in CI
     #[test]
     fn should_lock_and_unlock() {
         let ss = SecretService::connect(EncryptionType::Dh).unwrap();

@@ -36,7 +36,7 @@ hybrid-array = "0.4"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
-test-with = { version = "0.17.2", default-features = false }
+test-with = { version = "0.15", default-features = false }
 
 [package.metadata.docs.rs]
 features = ["crypto-rust"]
