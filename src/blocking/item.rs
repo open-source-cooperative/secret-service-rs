@@ -110,7 +110,7 @@ mod test {
 
     #[test]
     fn should_create_and_delete_item() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
@@ -123,7 +123,7 @@ mod test {
 
     #[test]
     fn should_check_if_item_locked() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
@@ -133,7 +133,7 @@ mod test {
 
     #[test]
     fn deleted_item_does_not_report_a_lock_state() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
         item.delete().unwrap();
@@ -142,18 +142,20 @@ mod test {
 
     #[test]
     fn deleted_item_cannot_be_confirmed_unlocked() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
         item.delete().unwrap();
         assert!(item.ensure_unlocked().is_err());
     }
 
+    #[test_with::no_env(GITHUB_ACTIONS)] // does prompting, so can't use in CI
     #[test]
-    #[ignore]
     fn should_lock_and_unlock() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
-        let collection = ss.get_default_collection().unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
+        // we have to make a collection to create the item to be locked,
+        // because locking the item really locks the collection!
+        let collection = ss.create_collection("BlockingLockTest", "").unwrap();
         let item = create_test_default_item(&collection);
 
         let locked = item.is_locked().unwrap();
@@ -171,11 +173,12 @@ mod test {
             assert!(!item.is_locked().unwrap());
         }
         item.delete().unwrap();
+        collection.delete().unwrap()
     }
 
     #[test]
     fn should_get_and_set_item_label() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
@@ -191,7 +194,7 @@ mod test {
         let path: OwnedObjectPath;
         // first create the item on one blocking call, set its label, and get its path
         {
-            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let ss = SecretService::connect(EncryptionType::Dh).unwrap();
             let collection = ss.get_default_collection().unwrap();
             let item = create_test_default_item(&collection);
             item.set_label("Tester").unwrap();
@@ -199,7 +202,7 @@ mod test {
         }
         // now get the item by path on another blocking call, check its label, and delete it
         {
-            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let ss = SecretService::connect(EncryptionType::Dh).unwrap();
             let item = ss.get_item_by_path(path).unwrap();
             let label = item.get_label().unwrap();
             assert_eq!(label, "Tester");
@@ -209,7 +212,7 @@ mod test {
 
     #[test]
     fn should_create_with_item_attributes() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = collection
             .create_item(
@@ -237,7 +240,7 @@ mod test {
 
     #[test]
     fn should_get_and_set_item_attributes() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
@@ -262,7 +265,7 @@ mod test {
 
     #[test]
     fn should_get_modified_created_props() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
@@ -274,7 +277,7 @@ mod test {
 
     #[test]
     fn should_create_and_get_secret() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
@@ -296,7 +299,7 @@ mod test {
 
     #[test]
     fn should_get_secret_content_type() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 
@@ -307,7 +310,7 @@ mod test {
 
     #[test]
     fn should_set_secret() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = create_test_default_item(&collection);
 

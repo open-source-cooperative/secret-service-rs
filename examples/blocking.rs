@@ -1,13 +1,12 @@
-use secret_service::{EncryptionType, SecretService};
+use secret_service::{EncryptionType, blocking::SecretService};
 use std::{collections::HashMap, str};
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+fn main() {
     // Initialize secret service
-    let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+    let ss = SecretService::connect(EncryptionType::Dh).unwrap();
 
     // navigate to default collection
-    let collection = ss.get_default_collection().await.unwrap();
+    let collection = ss.get_default_collection().unwrap();
 
     let mut properties = HashMap::new();
     properties.insert("test", "test_value");
@@ -21,7 +20,6 @@ async fn main() {
             false,          // replace item with same attributes
             "text/plain",   // secret content type
         )
-        .await
         .unwrap();
 
     //println!("New Item: {:?}", new_item);
@@ -30,7 +28,7 @@ async fn main() {
     let mut search_properties = HashMap::new();
     search_properties.insert("test", "test_value");
 
-    let search_items = ss.search_items(search_properties).await.unwrap();
+    let search_items = ss.search_items(search_properties).unwrap();
 
     //println!("Searched Item: {:?}", search_items);
 
@@ -43,14 +41,14 @@ async fn main() {
                 .locked
                 .first()
                 .expect("Search didn't return any items!");
-            locked_item.unlock().await.unwrap();
+            locked_item.unlock().unwrap();
             locked_item
         }
     };
 
     // retrieve secret from item
-    let secret = item.get_secret().await.unwrap();
+    let secret = item.get_secret().unwrap();
     println!("Retrieved secret: {:?}", str::from_utf8(&secret).unwrap());
     assert_eq!(secret, b"test_secret");
-    item.delete().await.unwrap();
+    item.delete().unwrap();
 }

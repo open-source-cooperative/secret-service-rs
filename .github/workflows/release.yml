@@ -39,6 +39,6 @@ jobs:
       uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
 
     - name: Publish
-      run: cargo publish --features rt-tokio-crypto-rust
+      run: cargo publish --features crypto-rust
       env:
         CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

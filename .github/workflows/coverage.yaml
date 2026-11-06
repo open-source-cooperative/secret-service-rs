@@ -43,17 +43,11 @@ jobs:
         # unlock the login keyring so the tests can access it
         run: gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
 
-      - name: Test with rt-async-io-crypto-rust
-        run: cargo llvm-cov --no-report --features rt-async-io-crypto-rust -- --test-threads 1
+      - name: Test with crypto-rust
+        run: cargo llvm-cov --no-report --features crypto-rust -- --test-threads 1
 
-      - name: Test with rt-async-io-crypto-openssl
-        run: cargo llvm-cov --no-report --features rt-async-io-crypto-openssl -- --test-threads 1
-
-      - name: Test with rt-tokio-crypto-rust
-        run: cargo llvm-cov --no-report --features rt-tokio-crypto-rust -- --test-threads 1
-
-      - name: Test with rt-tokio-crypto-openssl
-        run: cargo llvm-cov --no-report --features rt-tokio-crypto-openssl -- --test-threads 1
+      - name: Test with crypto-openssl
+        run: cargo llvm-cov --no-report --features crypto-openssl -- --test-threads 1
 
       - name: Write the coverage report
         run: cargo llvm-cov report --lcov --output-path lcov.info

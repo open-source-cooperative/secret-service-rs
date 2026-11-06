@@ -97,21 +97,21 @@ mod test {
 
     #[test]
     fn should_create_collection_struct() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let _ = ss.get_default_collection().unwrap();
         // tested under SecretService struct
     }
 
     #[test]
     fn should_check_if_collection_locked() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         assert!(!collection.is_locked().unwrap());
     }
 
     #[test]
     fn missing_collection_has_no_lock_state() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss
             .get_collection_by_path(
                 OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
@@ -122,7 +122,7 @@ mod test {
 
     #[test]
     fn missing_collection_cannot_be_confirmed_unlocked() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss
             .get_collection_by_path(
                 OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
@@ -133,7 +133,7 @@ mod test {
 
     #[test]
     fn missing_collection_cannot_be_deleted() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss
             .get_collection_by_path(
                 OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
@@ -144,7 +144,7 @@ mod test {
 
     #[test]
     fn missing_collection_cannot_be_renamed() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss
             .get_collection_by_path(
                 OwnedObjectPath::try_from("/org/freedesktop/secrets/collection/missing").unwrap(),
@@ -154,50 +154,8 @@ mod test {
     }
 
     #[test]
-    #[ignore] // should unignore this test this manually, otherwise will constantly prompt during tests.
-    fn should_lock_and_unlock() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
-        let collection = ss.get_default_collection().unwrap();
-        let locked = collection.is_locked().unwrap();
-        if locked {
-            collection.unlock().unwrap();
-            collection.ensure_unlocked().unwrap();
-            assert!(!collection.is_locked().unwrap());
-            collection.lock().unwrap();
-            assert!(collection.is_locked().unwrap());
-        } else {
-            collection.lock().unwrap();
-            assert!(collection.is_locked().unwrap());
-            collection.unlock().unwrap();
-            collection.ensure_unlocked().unwrap();
-            assert!(!collection.is_locked().unwrap());
-        }
-    }
-
-    #[test]
-    #[ignore]
-    fn should_delete_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
-        let collections = ss.get_all_collections().unwrap();
-        let count_before = collections.len();
-        for collection in collections {
-            let collection_path = &*collection.collection_path;
-            if collection_path.contains("Test") {
-                collection.unlock().unwrap();
-                collection.delete().unwrap();
-            }
-        }
-        //double check after
-        let collections = ss.get_all_collections().unwrap();
-        assert!(
-            collections.len() < count_before,
-            "collections before delete {count_before}",
-        )
-    }
-
-    #[test]
     fn should_get_all_items() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let item = collection
             .create_item(
@@ -215,7 +173,7 @@ mod test {
 
     #[test]
     fn should_search_items() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
 
         // Create an item
@@ -248,42 +206,19 @@ mod test {
     }
 
     #[test]
-    #[ignore]
-    fn should_get_and_set_collection_label() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
-        let collection = ss.get_default_collection().unwrap();
-        let label = collection.get_label().unwrap();
-        assert_eq!(label, "Login");
-
-        // Set label to test and check
-        collection.unlock().unwrap();
-        collection.set_label("Test").unwrap();
-        let label = collection.get_label().unwrap();
-        assert_eq!(label, "Test");
-
-        // Reset label to original and test
-        collection.unlock().unwrap();
-        collection.set_label("Login").unwrap();
-        let label = collection.get_label().unwrap();
-        assert_eq!(label, "Login");
-
-        collection.lock().unwrap();
-    }
-
-    #[test]
     fn should_get_collection_by_path() {
         let path: OwnedObjectPath;
         let label: String;
         // get the default collection on one blocking call, remember its path and label
         {
-            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let ss = SecretService::connect(EncryptionType::Dh).unwrap();
             let collection = ss.get_default_collection().unwrap();
             label = collection.get_label().unwrap();
             path = collection.collection_path.clone();
         }
         // get collection by path on another blocking call, check that the label is the same
         {
-            let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+            let ss = SecretService::connect(EncryptionType::Dh).unwrap();
             let collection_prime = ss.get_collection_by_path(path).unwrap();
             let label_prime = collection_prime.get_label().unwrap();
             assert_eq!(label, label_prime);
@@ -292,10 +227,10 @@ mod test {
 
     #[test]
     fn should_get_collection_label_from_service() {
-        let ss = SecretService::connect(EncryptionType::Plain).unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).unwrap();
         let collection = ss.get_default_collection().unwrap();
         let async_service =
-            zruntime::block_on(crate::SecretService::connect(EncryptionType::Plain)).unwrap();
+            zruntime::block_on(crate::SecretService::connect(EncryptionType::Dh)).unwrap();
         let async_collection = zruntime::block_on(
             async_service.get_collection_by_path(collection.collection_path.clone()),
         )

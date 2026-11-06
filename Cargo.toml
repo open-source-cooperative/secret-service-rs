@@ -3,27 +3,22 @@ authors = ["Walther Chen <walther.chen@gmail.com>"]
 description = "Library to interface with Secret Service API"
 documentation = "https://docs.rs/secret-service"
 homepage = "https://github.com/hwchen/secret-service-rs.git"
-keywords = ["secret-service", "password", "linux", "keychain"]
+keywords = ["secret-service", "password", "zbus", "zbus-secret-service"]
 license = "MIT OR Apache-2.0"
 name = "secret-service"
 repository = "https://github.com/hwchen/secret-service-rs.git"
 edition = "2024"
-version = "6.0.0"
+version = "6.0.0-rc.1"
 rust-version = "1.89.0"
 
-# The async runtime features mirror those of `zbus` for compatibility.
 [features]
+default = ["rt-default"]
+
 crypto-rust = ["dep:aes", "dep:cbc", "dep:sha2", "dep:hkdf"]
 crypto-openssl = ["dep:openssl"]
 
-rt-async-io = ["zbus/default-rt"]
+rt-default = ["zbus/default-rt"]
 rt-tokio = ["zbus/tokio"]
-
-rt-async-io-crypto-rust = ["rt-async-io", "crypto-rust"]
-rt-async-io-crypto-openssl = ["rt-async-io", "crypto-openssl"]
-
-rt-tokio-crypto-rust = ["rt-tokio", "crypto-rust"]
-rt-tokio-crypto-openssl = ["rt-tokio", "crypto-openssl"]
 
 [dependencies]
 aes = { version = "0.9", optional = true }
@@ -34,7 +29,7 @@ num = "0.4"
 getrandom = "0.4"
 serde = { version = "1", features = ["derive"] }
 sha2 = { version = "0.11.0", optional = true }
-zbus = { version = "6", default-features = false, features = ["default-rt", "proxy"] }
+zbus = { version = "6", default-features = false, features = ["proxy"] }
 zruntime = { version = "0.2", features = ["helper"] }
 openssl = { version = "0.10", optional = true }
 hybrid-array = "0.4"
@@ -44,4 +39,4 @@ tokio = { version = "1", features = ["rt", "macros"] }
 test-with = { version = "0.15", default-features = false }
 
 [package.metadata.docs.rs]
-features = ["rt-tokio-crypto-rust"]
+features = ["crypto-rust"]

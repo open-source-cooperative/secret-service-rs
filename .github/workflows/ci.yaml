@@ -24,11 +24,9 @@ jobs:
       matrix:
         rust:
           - stable
-        feature:
-          - rt-async-io-crypto-rust
-          - rt-async-io-crypto-openssl
-          - rt-tokio-crypto-rust
-          - rt-tokio-crypto-openssl
+        features:
+          - "crypto-rust"
+          - "crypto-openssl"
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,7 +39,7 @@ jobs:
         components: clippy
 
     - name: "Clippy ${{ matrix.rust }}"
-      run: cargo clippy --features=${{ matrix.feature }} --all-targets --all -- -D clippy::dbg_macro -D warnings -F unused_must_use
+      run: cargo clippy --features=${{ matrix.features }} --all-targets --all -- -D clippy::dbg_macro -D warnings -F unused_must_use
 
   fmt:
     name: Rustfmt
@@ -68,11 +66,9 @@ jobs:
       matrix:
         rust:
           - stable
-        feature:
-          - rt-async-io-crypto-rust
-          - rt-async-io-crypto-openssl
-          - rt-tokio-crypto-rust
-          - rt-tokio-crypto-openssl
+        features:
+          - "crypto-rust"
+          - "crypto-openssl"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -96,10 +92,12 @@ jobs:
 
       - name: Run tests
         # run tests single-threaded to avoid race conditions
-        run: cargo test --features=${{ matrix.feature }} -- --test-threads=1
+        run: cargo test --features=${{ matrix.features }} -- --test-threads=1
 
-      - name: Run example
-        run: cargo run --features=${{ matrix.feature }} --example example
+      - name: Run examples
+        run: |
+          cargo run --features=${{ matrix.features }} --example async
+          cargo run --features=${{ matrix.features }} --example blocking
 
   # MSRV, influenced by zbus.
   check_msrv:
@@ -108,11 +106,9 @@ jobs:
 
     strategy:
       matrix:
-       feature:
-         - rt-async-io-crypto-rust
-         - rt-async-io-crypto-openssl
-         - rt-tokio-crypto-rust
-         - rt-tokio-crypto-openssl
+        features:
+          - "crypto-rust"
+          - "crypto-openssl"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -129,7 +125,7 @@ jobs:
           cargo generate-lockfile
 
       - name: Clippy MSRV
-        run: cargo clippy --features=${{ matrix.feature }} --all-targets --all -- -D clippy::dbg_macro -D warnings -F unused_must_use
+        run: cargo clippy --features=${{ matrix.features }} --all-targets --all -- -D clippy::dbg_macro -D warnings -F unused_must_use
 
   ci-success:
     if: always()

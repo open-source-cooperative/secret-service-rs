@@ -1,4 +1,4 @@
-//! # Secret Service libary
+//! # Secret Service library
 //!
 //! This library implements a rust interface to the Secret Service API which is implemented
 //! in Linux.
@@ -72,7 +72,7 @@
 //! # use secret_service::SecretService;
 //! # use secret_service::EncryptionType;
 //! # async fn call() {
-//! SecretService::connect(EncryptionType::Plain).await.unwrap();
+//! SecretService::connect(EncryptionType::Dh).await.unwrap();
 //! # }
 //! ```
 //!
@@ -237,7 +237,7 @@ impl<'a> SecretService<'a> {
     }
 
     /// Get default collection.
-    /// (The collection whos alias is `default`)
+    /// (The collection whose alias is `default`)
     pub async fn get_default_collection(&self) -> Result<Collection<'_>, Error> {
         self.get_collection_by_alias("default").await
     }
@@ -379,26 +379,26 @@ mod test {
 
     #[tokio::test]
     async fn should_create_secret_service() {
-        SecretService::connect(EncryptionType::Plain).await.unwrap();
+        SecretService::connect(EncryptionType::Dh).await.unwrap();
     }
 
     #[tokio::test]
     async fn should_get_all_collections() {
         // Assumes that there will always be a default collection
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collections = ss.get_all_collections().await.unwrap();
         assert!(!collections.is_empty(), "no collections found");
     }
 
     #[tokio::test]
     async fn should_get_collection_by_alias() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         ss.get_collection_by_alias("session").await.unwrap();
     }
 
     #[tokio::test]
     async fn should_return_error_if_collection_doesnt_exist() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
 
         match ss
             .get_collection_by_alias("definitely_defintely_does_not_exist")
@@ -411,31 +411,52 @@ mod test {
 
     #[tokio::test]
     async fn should_get_default_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         ss.get_default_collection().await.unwrap();
     }
 
     #[tokio::test]
     async fn should_get_any_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let _ = ss.get_any_collection().await.unwrap();
     }
 
     #[test_with::no_env(GITHUB_ACTIONS)]
     #[tokio::test]
-    async fn should_create_and_delete_collection() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
-        let test_collection = ss.create_collection("Test", "").await.unwrap();
+    async fn should_succeed_at_all_collection_operations() {
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
+        let test_collection = ss
+            .create_collection("AsyncTestCollection", "")
+            .await
+            .unwrap();
         assert_eq!(
             ObjectPath::from(test_collection.collection_path.clone()),
-            ObjectPath::try_from("/org/freedesktop/secrets/collection/Test").unwrap()
+            ObjectPath::try_from("/org/freedesktop/secrets/collection/AsyncTestCollection")
+                .unwrap()
         );
+        let mut label = test_collection.get_label().await.unwrap();
+        assert_eq!(label, "AsyncTestCollection");
+        test_collection
+            .set_label("AsyncTestCollection renamed")
+            .await
+            .unwrap();
+        label = test_collection.get_label().await.unwrap();
+        assert_eq!(label, "AsyncTestCollection renamed");
+        test_collection
+            .set_label("AsyncTestCollection")
+            .await
+            .unwrap();
+        assert!(!test_collection.is_locked().await.unwrap());
+        test_collection.lock().await.unwrap();
+        assert!(test_collection.is_locked().await.unwrap());
+        test_collection.unlock().await.unwrap();
+        assert!(!test_collection.is_locked().await.unwrap());
         test_collection.delete().await.unwrap();
     }
 
     #[tokio::test]
     async fn should_search_items() {
-        let ss = SecretService::connect(EncryptionType::Plain).await.unwrap();
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
         let collection = ss.get_default_collection().await.unwrap();
 
         // Create an item
@@ -470,5 +491,28 @@ mod test {
         assert_eq!(item.item_path, search_item.unlocked[0].item_path);
         assert_eq!(search_item.locked.len(), 0);
         item.delete().await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore] // use this only have left over test collections to delete
+    async fn zz_delete_test_collections() {
+        let ss = SecretService::connect(EncryptionType::Dh).await.unwrap();
+        let collections = ss.get_all_collections().await.unwrap();
+        let mut count = 0;
+        for collection in collections {
+            let label = collection.get_label().await.unwrap();
+            if label.contains("Test") {
+                if collection.is_locked().await.unwrap() {
+                    collection.unlock().await.unwrap();
+                }
+                collection.delete().await.unwrap();
+                count += 1;
+            }
+        }
+        if count == 1 {
+            println!("Deleted 1 test collection");
+        } else {
+            println!("Deleted {} test collections", count);
+        }
     }
 }
