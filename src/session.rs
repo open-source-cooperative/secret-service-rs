@@ -49,6 +49,9 @@ macro_rules! feature_needed {
     }
 }
 
+/// Size in bytes of a number modulo `DH_PRIME` (the 1024-bit Second Oakley Group).
+const DH_KEY_BYTES: usize = 128;
+
 type AesKey = Array<u8, U16>;
 /// AES-CBC initialization vector
 pub type AesIv = [u8; 16];
@@ -69,7 +72,7 @@ struct Keypair {
 
 impl Keypair {
     fn generate() -> Self {
-        let mut private_key_bytes = [0; 128];
+        let mut private_key_bytes = [0; DH_KEY_BYTES];
         getrandom::fill(&mut private_key_bytes).expect("platform RNG failed");
 
         let private_key = BigUint::from_bytes_be(&private_key_bytes);
@@ -85,14 +88,10 @@ impl Keypair {
         // Derive the shared secret the server and us.
         let common_secret = powm(server_public_key, &self.private, &DH_PRIME);
 
-        let mut common_secret_bytes = common_secret.to_bytes_be();
-        let mut common_secret_padded = vec![0; 128 - common_secret_bytes.len()];
-        common_secret_padded.append(&mut common_secret_bytes);
-
         // hkdf
 
         // input keying material
-        let ikm = common_secret_padded;
+        let ikm = to_padded_bytes(&common_secret);
         let salt = None;
 
         // output keying material
@@ -101,6 +100,24 @@ impl Keypair {
 
         Array::from(okm)
     }
+
+    /// The public key as sent to the service: always `DH_KEY_BYTES` long.
+    fn public_bytes(&self) -> Vec<u8> {
+        to_padded_bytes(&self.public)
+    }
+}
+
+/// Big-endian encoding of a number modulo `DH_PRIME`, left-padded with zeros
+/// to `DH_KEY_BYTES`.
+///
+/// `BigUint::to_bytes_be` drops leading zero bytes, so about one key in 256
+/// would otherwise come out shorter, and services that check the length
+/// (KWallet) refuse it with "Client public key size is invalid".
+fn to_padded_bytes(n: &BigUint) -> Vec<u8> {
+    let bytes = n.to_bytes_be();
+    let mut padded = vec![0; DH_KEY_BYTES - bytes.len()];
+    padded.extend_from_slice(&bytes);
+    padded
 }
 
 #[cfg(feature = "crypto-openssl")]
@@ -179,7 +196,7 @@ impl Session {
                 let keypair = Keypair::generate();
 
                 let session = service_proxy
-                    .open_session(ALGORITHM_DH, keypair.public.to_bytes_be().into())
+                    .open_session(ALGORITHM_DH, keypair.public_bytes().into())
                     .await?;
 
                 Self::encrypted_session(&keypair, session)
@@ -273,4 +290,45 @@ pub fn encrypt(data: &[u8], key: &AesKey, iv: &AesIv) -> Vec<u8> {
 #[cfg(all(not(feature = "crypto-rust"), not(feature = "crypto-openssl")))]
 pub fn decrypt(encrypted_data: &[u8], key: &AesKey, iv: &AesIv) -> Result<Vec<u8>, Error> {
     feature_needed!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn public_key_with_leading_zero_bytes_is_padded() {
+        // A public key far below 2^1016 has leading zero bytes in a 128-byte encoding.
+        let keypair = Keypair {
+            private: BigUint::from_u64(9).unwrap(),
+            public: powm(&DH_GENERATOR, &BigUint::from_u64(9).unwrap(), &DH_PRIME),
+        };
+        assert_eq!(keypair.public.to_bytes_be(), vec![0x02, 0x00]);
+
+        let sent = keypair.public_bytes();
+        assert_eq!(sent.len(), DH_KEY_BYTES);
+        assert!(sent[..DH_KEY_BYTES - 2].iter().all(|&b| b == 0));
+        assert_eq!(&sent[DH_KEY_BYTES - 2..], &[0x02, 0x00]);
+        assert_eq!(BigUint::from_bytes_be(&sent), keypair.public);
+    }
+
+    #[test]
+    fn full_size_public_key_is_unchanged() {
+        let keypair = Keypair::generate();
+        let sent = keypair.public_bytes();
+        assert_eq!(sent.len(), DH_KEY_BYTES);
+        assert_eq!(BigUint::from_bytes_be(&sent), keypair.public);
+    }
+
+    #[test]
+    fn both_sides_derive_the_same_key() {
+        let client = Keypair::generate();
+        let server = Keypair::generate();
+        let server_public = BigUint::from_bytes_be(&server.public_bytes());
+        let client_public = BigUint::from_bytes_be(&client.public_bytes());
+        assert_eq!(
+            client.derive_shared(&server_public),
+            server.derive_shared(&client_public)
+        );
+    }
 }
