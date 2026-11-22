@@ -2,13 +2,12 @@
 authors = ["Walther Chen <walther.chen@gmail.com>"]
 description = "Library to interface with Secret Service API"
 documentation = "https://docs.rs/secret-service"
-homepage = "https://github.com/hwchen/secret-service-rs.git"
 keywords = ["secret-service", "password", "zbus", "zbus-secret-service"]
 license = "MIT OR Apache-2.0"
 name = "secret-service"
-repository = "https://github.com/hwchen/secret-service-rs.git"
+repository = "https://github.com/open-source-cooperative/secret-service-rs.git"
 edition = "2024"
-version = "6.0.0-rc.1"
+version = "6.0.0"
 rust-version = "1.89.0"
 
 [features]
@@ -37,6 +36,11 @@ hybrid-array = "0.4"
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 test-with = { version = "0.15", default-features = false }
+
+[lints.rust]
+# needed because of proc-macro2 used by lots of async stuff.
+# it's a warning, but we disallow warnings
+future_incompatible = "allow"
 
 [package.metadata.docs.rs]
 features = ["crypto-rust"]
